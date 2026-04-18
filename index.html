@@ -1,0 +1,3344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seismic Wave Simulator · 지진파 시뮬레이터</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg-0: #070b13;
+      --bg-1: #0c1220;
+      --bg-2: #141b2c;
+      --panel: rgba(20, 27, 43, .82);
+      --panel-hi: rgba(28, 37, 58, .88);
+      --panel-lo: rgba(16, 22, 36, .7);
+      --line: rgba(255, 255, 255, .08);
+      --line-strong: rgba(255, 255, 255, .14);
+      --text: #eef3ff;
+      --text-dim: #b6c2e0;
+      --muted: #8a96b4;
+      --accent: #6fb6ff;
+      --accent-2: #7ff3cf;
+      --accent-3: #ffc87a;
+      --rose: #ff96b5;
+      --violet: #c89cff;
+      --ok: #8dffb0;
+      --warn: #ffd78d;
+      --danger: #ff9dbb;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-1: 0 12px 28px rgba(0, 0, 0, .36);
+      --shadow-2: 0 2px 10px rgba(0, 0, 0, .25);
+      --font-ui: "Inter", "Pretendard", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: ui-monospace, "JetBrains Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      color: var(--text);
+      background:
+        radial-gradient(ellipse 80% 60% at 12% 8%, rgba(111, 182, 255, .10), transparent 60%),
+        radial-gradient(ellipse 60% 50% at 88% 12%, rgba(127, 243, 207, .07), transparent 60%),
+        radial-gradient(ellipse 80% 70% at 50% 100%, rgba(200, 156, 255, .06), transparent 60%),
+        linear-gradient(180deg, #060912 0%, #070c18 100%);
+      letter-spacing: -.005em;
+    }
+
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .09); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .16); }
+
+    #app {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 396px minmax(0, 1fr);
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-1);
+      backdrop-filter: blur(14px) saturate(120%);
+      -webkit-backdrop-filter: blur(14px) saturate(120%);
+    }
+
+    #controls {
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 28px);
+    }
+
+    .controls-head {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(111, 182, 255, .06), transparent);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, rgba(111, 182, 255, .38), rgba(127, 243, 207, .26));
+      border: 1px solid rgba(111, 182, 255, .45);
+      box-shadow: 0 4px 14px rgba(111, 182, 255, .25), inset 0 0 0 1px rgba(255, 255, 255, .08);
+    }
+
+    .brand-mark svg { width: 22px; height: 22px; }
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -.015em;
+    }
+
+    .brand-copy p {
+      margin: 2px 0 0;
+      font-size: .78rem;
+      color: var(--muted);
+      letter-spacing: 0;
+    }
+
+    .controls-body {
+      padding: 14px 18px 18px;
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .section {
+      margin-bottom: 14px;
+    }
+
+    .section:last-child { margin-bottom: 0; }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 0 2px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .section-title .dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .section-content {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .025), rgba(255, 255, 255, .008));
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 12px;
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .preset-tile {
+      cursor: pointer;
+      padding: 10px 11px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--line);
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+      text-align: left;
+      color: var(--text-dim);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .preset-tile:hover {
+      background: rgba(111, 182, 255, .08);
+      border-color: rgba(111, 182, 255, .3);
+      transform: translateY(-1px);
+    }
+
+    .preset-tile.active {
+      background: linear-gradient(180deg, rgba(111, 182, 255, .22), rgba(111, 182, 255, .1));
+      border-color: rgba(111, 182, 255, .6);
+      color: var(--text);
+      box-shadow: 0 0 0 1px rgba(111, 182, 255, .3) inset, 0 4px 12px rgba(111, 182, 255, .12);
+    }
+
+    .preset-tile .tag {
+      font-size: .66rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 600;
+    }
+
+    .preset-tile.active .tag { color: var(--accent); }
+
+    .preset-tile .name {
+      font-size: .86rem;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .preset-note {
+      margin-top: 10px;
+      padding: 10px 11px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(111, 182, 255, .18);
+      background: linear-gradient(180deg, rgba(111, 182, 255, .07), rgba(111, 182, 255, .025));
+      color: var(--text-dim);
+      font-size: .8rem;
+      line-height: 1.5;
+    }
+
+    .preset-note strong { color: var(--accent); font-weight: 600; }
+
+    .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn-row > * { flex: 1 1 auto; }
+
+    button.btn {
+      cursor: pointer;
+      border: 1px solid var(--line-strong);
+      background: rgba(255, 255, 255, .04);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: var(--radius-sm);
+      font: inherit;
+      font-size: .82rem;
+      font-weight: 500;
+      transition: transform .14s ease, border-color .14s ease, background .14s ease, box-shadow .14s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    button.btn:hover {
+      background: rgba(111, 182, 255, .10);
+      border-color: rgba(111, 182, 255, .35);
+      transform: translateY(-1px);
+    }
+
+    button.btn:active { transform: translateY(0); }
+
+    button.btn.primary {
+      background: linear-gradient(180deg, rgba(111, 182, 255, .28), rgba(111, 182, 255, .14));
+      border-color: rgba(111, 182, 255, .42);
+      color: #f6fbff;
+      box-shadow: 0 4px 12px rgba(111, 182, 255, .18);
+    }
+
+    button.btn.primary:hover {
+      background: linear-gradient(180deg, rgba(111, 182, 255, .38), rgba(111, 182, 255, .2));
+      border-color: rgba(111, 182, 255, .6);
+    }
+
+    button.btn.warn {
+      background: linear-gradient(180deg, rgba(255, 215, 141, .22), rgba(255, 215, 141, .08));
+      border-color: rgba(255, 215, 141, .32);
+    }
+
+    button.btn.danger {
+      background: linear-gradient(180deg, rgba(255, 157, 187, .2), rgba(255, 157, 187, .08));
+      border-color: rgba(255, 157, 187, .32);
+    }
+
+    button.btn.icon {
+      flex: 0 0 auto;
+      padding: 8px 10px;
+    }
+
+    button.btn svg { width: 14px; height: 14px; }
+
+    .grid { display: grid; gap: 10px; }
+    .grid.two { grid-template-columns: 1fr 1fr; }
+    .grid.three { grid-template-columns: repeat(3, 1fr); }
+
+    label.field {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: .78rem;
+      font-weight: 500;
+    }
+
+    label.field .field-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .help-tip {
+      display: inline-grid;
+      place-items: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .06);
+      color: var(--muted);
+      font-size: .62rem;
+      font-weight: 700;
+      cursor: help;
+      border: 1px solid var(--line);
+      transition: background .14s ease, color .14s ease;
+    }
+
+    .help-tip:hover { background: rgba(111, 182, 255, .2); color: var(--accent); }
+
+    select,
+    input[type="number"],
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line-strong);
+      background: rgba(8, 11, 19, .7);
+      color: var(--text);
+      border-radius: var(--radius-sm);
+      padding: 9px 10px;
+      outline: none;
+      font: inherit;
+      font-size: .85rem;
+      transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+    }
+
+    select:focus,
+    input[type="number"]:focus,
+    textarea:focus {
+      border-color: rgba(111, 182, 255, .55);
+      background: rgba(8, 11, 19, .9);
+      box-shadow: 0 0 0 3px rgba(111, 182, 255, .12);
+    }
+
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      line-height: 1.45;
+      tab-size: 2;
+      font-family: var(--font-mono);
+      font-size: .76rem;
+      white-space: pre;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      margin: 4px 0;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(111, 182, 255, .55), rgba(255, 255, 255, .1));
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 5px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, rgba(111, 182, 255, .55), rgba(255, 255, 255, .1));
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #cde1ff, #8ab6f0);
+      border: 2px solid #1a2640;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .4), 0 0 0 3px rgba(111, 182, 255, .1);
+      margin-top: -5px;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #cde1ff, #8ab6f0);
+      border: 2px solid #1a2640;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .4);
+      cursor: pointer;
+    }
+
+    .range-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .value-badge {
+      min-width: 60px;
+      text-align: center;
+      padding: 4px 8px;
+      background: rgba(111, 182, 255, .12);
+      border-radius: 999px;
+      border: 1px solid rgba(111, 182, 255, .22);
+      color: var(--text);
+      font-size: .76rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .check-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(255, 255, 255, .02);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      color: var(--text);
+      font-size: .8rem;
+      cursor: pointer;
+      transition: background .14s ease, border-color .14s ease;
+      user-select: none;
+    }
+
+    .check:hover { background: rgba(111, 182, 255, .07); border-color: rgba(111, 182, 255, .22); }
+
+    .check input { accent-color: #6fb6ff; cursor: pointer; }
+    .check:has(input:checked) {
+      background: rgba(111, 182, 255, .1);
+      border-color: rgba(111, 182, 255, .32);
+    }
+
+    .status-card {
+      padding: 11px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, .03);
+      border: 1px solid var(--line);
+      color: var(--text-dim);
+      font-size: .8rem;
+      line-height: 1.5;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .status-card .status-icon {
+      flex: 0 0 auto;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin-top: 4px;
+    }
+
+    .status-card.ok { border-color: rgba(141, 255, 176, .28); background: rgba(141, 255, 176, .06); color: var(--ok); }
+    .status-card.ok .status-icon { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .status-card.warn { border-color: rgba(255, 215, 141, .28); background: rgba(255, 215, 141, .06); color: var(--warn); }
+    .status-card.warn .status-icon { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+    .status-card.error { border-color: rgba(255, 157, 187, .32); background: rgba(255, 157, 187, .06); color: var(--danger); }
+    .status-card.error .status-icon { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+    .insight-card {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(127, 243, 207, .08), rgba(127, 243, 207, .02));
+      border: 1px solid rgba(127, 243, 207, .22);
+      color: var(--text-dim);
+      font-size: .79rem;
+      line-height: 1.5;
+    }
+
+    .insight-card strong { color: var(--accent-2); font-weight: 600; }
+
+    code.mono {
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 5px;
+      color: var(--text);
+      font-size: .78rem;
+    }
+
+    .tiny { color: var(--muted); font-size: .74rem; line-height: 1.5; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-card {
+      padding: 9px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .02);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .stat-card span {
+      color: var(--muted);
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-weight: 500;
+    }
+
+    .stat-card strong {
+      font-size: .98rem;
+      color: var(--text);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    details.collapse {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, .02);
+      overflow: hidden;
+    }
+
+    details.collapse summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--text-dim);
+      font-size: .82rem;
+      font-weight: 600;
+      user-select: none;
+      transition: background .14s ease;
+    }
+
+    details.collapse summary::-webkit-details-marker { display: none; }
+
+    details.collapse summary:hover { background: rgba(111, 182, 255, .06); }
+
+    details.collapse summary .chevron {
+      transition: transform .18s ease;
+      color: var(--muted);
+    }
+
+    details.collapse[open] summary .chevron { transform: rotate(180deg); }
+
+    details.collapse .collapse-body {
+      padding: 0 14px 14px;
+    }
+
+    .fullscreen-panel {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+    }
+
+    /* Layer UI Styles */
+    .layer-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      position: relative;
+    }
+    .layer-card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.8rem; font-weight: 600; color: var(--text);
+      margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+    }
+    .layer-card .btn-remove {
+      background: transparent; border: none; color: var(--danger); cursor: pointer; padding: 2px 5px; font-size: 0.75rem;
+    }
+    .layer-card .btn-remove:hover { background: rgba(255, 157, 187, 0.1); border-radius: 4px; }
+
+    #main {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) minmax(230px, 30vh);
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+      height: calc(100vh - 28px);
+      overflow: hidden;
+    }
+
+    #viewGrid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.65fr) minmax(340px, 1fr);
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .view-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .view-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .view-head h3 {
+      margin: 0;
+      font-size: .86rem;
+      color: var(--text);
+      font-weight: 600;
+      letter-spacing: -.005em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .view-head h3 .kbd {
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, .05);
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .view-head .meta {
+      color: var(--muted);
+      font-size: .75rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+      margin: 10px;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 50% 40% at 30% 10%, rgba(111, 182, 255, .07), transparent 60%),
+        linear-gradient(180deg, rgba(10, 14, 22, 1) 0%, rgba(5, 8, 14, 1) 100%);
+      border: 1px solid var(--line);
+    }
+
+    canvas { width: 100%; height: 100%; display: block; }
+    #simCanvas { cursor: crosshair; }
+
+    .overlay { position: absolute; z-index: 1; pointer-events: none; }
+
+    #simHud {
+      left: 12px;
+      top: 12px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .pill {
+      width: fit-content;
+      background: rgba(7, 10, 18, .78);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 11px;
+      color: var(--text);
+      font-size: .75rem;
+      font-variant-numeric: tabular-nums;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .pill .accent { color: var(--accent); margin-right: 4px; font-weight: 600; }
+
+    .legend-box {
+      right: 12px;
+      top: 12px;
+      max-width: min(300px, 46%);
+      padding: 10px 12px;
+      background: rgba(7, 10, 18, .78);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--muted);
+      font-size: .74rem;
+      line-height: 1.45;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .legend-title {
+      display: block;
+      color: var(--text);
+      margin-bottom: 7px;
+      font-size: .77rem;
+      font-weight: 600;
+      letter-spacing: .02em;
+    }
+
+    .legend-list { display: grid; gap: 5px; }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .swatch {
+      width: 11px;
+      height: 11px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, .2);
+      flex: none;
+      box-shadow: 0 0 6px rgba(0, 0, 0, .6);
+    }
+
+    .swatch.line { height: 3px; border-radius: 2px; }
+    .swatch.dash { background: repeating-linear-gradient(90deg, rgba(255,255,255,.85) 0 3px, transparent 3px 6px) !important; }
+
+    #tables {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .table-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .table-head {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .table-head h3 {
+      margin: 0;
+      font-size: .84rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .table-scroll {
+      overflow: auto;
+      min-height: 0;
+      flex: 1 1 auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .8rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: linear-gradient(180deg, #141b2c, #10172a);
+      text-align: left;
+      padding: 9px 12px;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--line);
+      font-weight: 600;
+      font-size: .72rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    tbody td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, .04);
+      color: var(--text-dim);
+      vertical-align: middle;
+    }
+
+    tbody tr:hover td { background: rgba(111, 182, 255, .04); }
+
+    .p-chip, .s-chip {
+      display: inline-block;
+      padding: 1px 7px;
+      border-radius: 10px;
+      font-size: .7rem;
+      font-weight: 600;
+      border: 1px solid;
+    }
+
+    .p-chip { background: rgba(111, 182, 255, .14); color: #b8d3fa; border-color: rgba(111, 182, 255, .3); }
+    .s-chip { background: rgba(255, 145, 190, .14); color: #ffc0d6; border-color: rgba(255, 145, 190, .3); }
+    .kind-direct { color: var(--text); }
+    .kind-reflection { color: var(--accent-2); }
+    .kind-head { color: var(--accent-3); }
+
+    .footer-note {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: .72rem;
+      line-height: 1.55;
+    }
+
+    .footer-note a { color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(111, 182, 255, .3); }
+    .footer-note a:hover { border-bottom-color: var(--accent); }
+
+    .formula-list { display: grid; gap: 8px; margin-top: 6px; }
+    .formula-row {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, .02);
+      border: 1px solid var(--line);
+      font-size: .76rem;
+      color: var(--text-dim);
+      align-items: center;
+    }
+
+    .formula-row .tag {
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .formula-row .eq {
+      font-family: var(--font-mono);
+      color: var(--text);
+      font-size: .78rem;
+    }
+
+    @media (max-width: 1320px) {
+      html, body { overflow: auto; }
+      #app {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+      #controls { max-height: none; }
+      #main {
+        height: auto;
+        grid-template-rows: auto auto;
+        overflow: visible;
+      }
+      #viewGrid {
+        grid-template-columns: 1fr;
+        min-height: 78vh;
+        height: auto;
+        overflow: visible;
+      }
+      #tables {
+        grid-template-columns: 1fr;
+        max-height: none;
+        overflow: visible;
+      }
+      .table-scroll { max-height: 280px; }
+      .legend-box { max-width: min(360px, 70vw); }
+    }
+
+    @media (max-width: 720px) {
+      .preset-grid, .check-grid, .stats-grid { grid-template-columns: 1fr 1fr; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      #app { padding: 10px; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="controls" class="panel">
+      <div class="controls-head">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12 C 4 12, 5 4, 7 12 S 10 20, 12 12 S 15 4, 17 12 S 20 20, 22 12" stroke="#cde1ff"/>
+            </svg>
+          </div>
+          <div class="brand-copy">
+            <h1>Seismic Wave Simulator</h1>
+            <p>지진파 시뮬레이터 · 다층 모델 주시곡선</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls-body">
+        <!-- 프리셋 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot"></span>프리셋 시나리오</div>
+          </div>
+          <div class="section-content">
+            <div id="presetGrid" class="preset-grid"></div>
+            <div id="presetNote" class="preset-note">프리셋을 선택하면 이 영역에 관찰 포인트가 표시됩니다.</div>
+            <div class="btn-row" style="margin-top: 10px;">
+              <button id="applyPresetBtn" class="btn primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                프리셋 적용
+              </button>
+              <button id="restartBtn" class="btn" title="현재 설정으로 재실행">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                재실행
+              </button>
+              <button id="pauseBtn" class="btn icon" title="일시정지 (스페이스)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 탐사/지진 설정 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot" style="background:var(--accent-3);box-shadow:0 0 8px var(--accent-3);"></span>탐사 · 진원</div>
+          </div>
+          <div class="section-content">
+            <div class="grid two">
+              <label class="field">
+                <span class="field-label">모델 폭
+                  <span class="help-tip" title="시뮬레이션 단면의 수평 길이 (world units)">?</span>
+                </span>
+                <input id="modelWidthInput" type="number" min="800" max="6000" step="50" value="2200" />
+              </label>
+              <label class="field">
+                <span class="field-label">수신기 개수
+                  <span class="help-tip" title="표면에 자동 배치되는 관측점 수">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="receiverCountRange" type="range" min="15" max="81" step="2" value="49" />
+                  <span class="value-badge" id="receiverCountValue">49</span>
+                </div>
+              </label>
+            </div>
+            <div class="grid" style="margin-top: 10px;">
+              <label class="field">
+                <span class="field-label">진원 X 위치
+                  <span class="help-tip" title="진원의 수평 좌표. 수신기 배열은 오른쪽에 자동 배치됩니다.">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="sourceXRange" type="range" min="80" max="700" step="5" value="180" />
+                  <span class="value-badge" id="sourceXValue">180</span>
+                </div>
+              </label>
+              <label class="field">
+                <span class="field-label">표면 아래 진원 깊이
+                  <span class="help-tip" title="표면으로부터 진원까지의 수직 거리">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="sourceDepthRange" type="range" min="10" max="90" step="1" value="35" />
+                  <span class="value-badge" id="sourceDepthValue">35</span>
+                </div>
+              </label>
+            </div>
+            <p class="tiny" style="margin: 10px 0 0;">
+              수신기는 진원 오른쪽 표면에 자동 배치됩니다. 단면을 <strong style="color:var(--accent);">클릭</strong>하면 진원 X 위치가 이동하고 즉시 재실행됩니다.
+            </p>
+          </div>
+        </div>
+
+        <!-- 파동/그래프 표시 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot" style="background:var(--accent-2);box-shadow:0 0 8px var(--accent-2);"></span>파동 · 그래프 표시</div>
+          </div>
+          <div class="section-content">
+            <div class="check-grid">
+              <label class="check"><input id="togglePWave" type="checkbox" checked /> P파</label>
+              <label class="check"><input id="toggleSWave" type="checkbox" checked /> S파</label>
+              <label class="check"><input id="toggleReflections" type="checkbox" checked /> 반사파</label>
+              <label class="check"><input id="toggleHeadWaves" type="checkbox" checked /> 임계굴절파</label>
+              <label class="check"><input id="toggleTheory" type="checkbox" checked /> 이론 곡선</label>
+              <label class="check"><input id="toggleObserved" type="checkbox" checked /> 관측 도달점</label>
+              <label class="check"><input id="toggleEnvelope" type="checkbox" checked /> 선두파 envelope</label>
+              <label class="check"><input id="toggleGrid" type="checkbox" checked /> 격자</label>
+            </div>
+            <div class="grid" style="margin-top: 10px;">
+              <label class="field">
+                <span class="field-label">주시곡선 시간창
+                  <span class="help-tip" title="주시곡선 Y축의 최대 시간. 하단은 항상 t=0에 고정됩니다.">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="graphTimeRange" type="range" min="300" max="5000" step="50" value="1600" />
+                  <span class="value-badge" id="graphTimeValue">1600</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 시뮬레이션 품질 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot" style="background:var(--rose);box-shadow:0 0 8px var(--rose);"></span>품질 · 애니메이션</div>
+          </div>
+          <div class="section-content">
+            <div class="grid">
+              <label class="field">
+                <span class="field-label">입자 수
+                  <span class="help-tip" title="파면을 이루는 입자의 개수. 많을수록 부드럽지만 무거워집니다.">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="particleRange" type="range" min="3000" max="20000" step="500" value="12000" />
+                  <span class="value-badge" id="particleValue">12000</span>
+                </div>
+              </label>
+              <label class="field">
+                <span class="field-label">진행 속도
+                  <span class="help-tip" title="시뮬레이션 시간이 흐르는 빠르기">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="speedRange" type="range" min="0.06" max="0.35" step="0.01" value="0.18" />
+                  <span class="value-badge" id="speedValue">0.18×</span>
+                </div>
+              </label>
+              <label class="field">
+                <span class="field-label">입자 밝기
+                  <span class="help-tip" title="입자 렌더링 밝기 증폭">?</span>
+                </span>
+                <div class="range-row">
+                  <input id="brightnessRange" type="range" min="0.5" max="2.5" step="0.05" value="1.15" />
+                  <span class="value-badge" id="brightnessValue">1.15</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 레이어 구성 편집 UI -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot" style="background:var(--violet);box-shadow:0 0 8px var(--violet);"></span>지층 구조 편집</div>
+          </div>
+          <details class="collapse" open>
+            <summary>
+              <span>레이어 구성 직관적 편집</span>
+              <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="collapse-body" style="padding-top: 10px;">
+              <div id="layerUiContainer" style="display:flex; flex-direction:column; gap:10px; max-height:350px; overflow-y:auto; padding-right:5px; margin-bottom: 10px;">
+                <!-- Layer Cards -->
+              </div>
+              <div class="btn-row">
+                <button id="addLayerBtn" class="btn" style="border-style: dashed; border-color: rgba(111,182,255,0.4); color: var(--accent);">+ 하단에 레이어 추가</button>
+              </div>
+              <div class="btn-row" style="margin-top:12px;">
+                <button id="applyConfigBtn" class="btn primary">구조 적용 (재실행)</button>
+                <button id="restorePresetJsonBtn" class="btn warn" title="선택된 프리셋 상태로 복구">프리셋 복원</button>
+                <button id="clearObservedBtn" class="btn danger" title="관측점 정보만 리셋">관측점 리셋</button>
+              </div>
+              <textarea id="configEditor" style="display:none;"></textarea>
+            </div>
+          </details>
+        </div>
+
+        <!-- 공식 참고 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot" style="background:var(--muted);box-shadow:0 0 8px var(--muted);"></span>물리 공식 참고</div>
+          </div>
+          <details class="collapse">
+            <summary>
+              <span>지진파 속도 · 주시곡선 공식</span>
+              <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="collapse-body">
+              <div class="formula-list">
+                <div class="formula-row"><span class="tag">Vp</span><span class="eq">√((K + 4μ/3) / ρ)</span></div>
+                <div class="formula-row"><span class="tag">Vs</span><span class="eq">√(μ / ρ)</span></div>
+                <div class="formula-row"><span class="tag">Snell</span><span class="eq">sin θ₁ / V₁ = sin θ₂ / V₂</span></div>
+                <div class="formula-row"><span class="tag">직접파</span><span class="eq">t = √(x² + h²) / V₁</span></div>
+                <div class="formula-row"><span class="tag">반사</span><span class="eq">τ²ᵢ = τᵢ² + (x/Vᵢ)²</span></div>
+                <div class="formula-row"><span class="tag">임계</span><span class="eq">t = τᵢ + x / Vₕ (Vₕ > Vᵢ)</span></div>
+                <div class="formula-row"><span class="tag">반사계수</span><span class="eq">R = |ΔV / ΣV|</span></div>
+              </div>
+              <p class="tiny" style="margin: 10px 0 0;">
+                K = 체적계수, μ = 전단계수, ρ = 밀도. 반사계수는 원본 C++ 구현과 동일한 속도 기반 근사식(R ≈ (V₂−V₁)/(V₂+V₁))입니다. 실제 지각에서는 임피던스 ρV 기반의 Fresnel 계수를 씁니다.
+              </p>
+            </div>
+          </details>
+        </div>
+
+        <!-- 상태 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot" style="background:var(--ok);box-shadow:0 0 8px var(--ok);"></span>상태 · 관찰 포인트</div>
+          </div>
+          <div id="status" class="status-card">
+            <span class="status-icon"></span>
+            <span id="statusText">준비됨. 프리셋을 선택하고 적용하세요.</span>
+          </div>
+          <div id="insight" class="insight-card">
+            <strong>관찰 포인트:</strong> 프리셋을 적용하면 여기에 추천 관찰 팁이 표시됩니다.
+          </div>
+        </div>
+
+        <!-- 요약 -->
+        <div class="section">
+          <div class="section-head">
+            <div class="section-title"><span class="dot"></span>실시간 요약</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><span>활성 P 입자</span><strong id="statP">0</strong></div>
+            <div class="stat-card"><span>활성 S 입자</span><strong id="statS">0</strong></div>
+            <div class="stat-card"><span>굴절 루트</span><strong id="statRoot">0</strong></div>
+            <div class="stat-card"><span>관측 도달점</span><strong id="statGraph">0</strong></div>
+            <div class="stat-card"><span>첫 도달 수신기</span><strong id="statReceivers">0</strong></div>
+            <div class="stat-card"><span>모델 시간</span><strong id="statTime">0.0</strong></div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          원본 프로젝트: <a href="https://github.com/FFLiK/SeismicWaveSimulator" target="_blank" rel="noopener">github.com/FFLiK/SeismicWaveSimulator</a> · GPL-3.0 License.
+          단일 HTML 웹 포팅 버전은 원본의 <code class="mono">Simulator.cpp</code>·<code class="mono">Layer.cpp</code>의 물리 엔진을 자바스크립트로 재구현한 것입니다.
+        </div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <section id="viewGrid">
+        <!-- 단면 시뮬레이션 -->
+        <section id="simCard" class="panel view-panel">
+          <div class="view-head">
+            <h3 style="flex:1;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              단면 시뮬레이션
+              <span class="kbd">클릭: 진원 이동</span>
+            </h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="meta" id="simHeadMeta">스냅샷 · 입자 밀도</span>
+              <button id="btnExpandSim" class="btn icon" style="padding: 4px; background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);" title="화면 확대/축소">🔍</button>
+            </div>
+          </div>
+          <div class="canvas-wrap" id="simViewport">
+            <canvas id="simCanvas"></canvas>
+            <div id="simHud" class="overlay">
+              <div class="pill" id="sourceBadge"><span class="accent">진원</span>(0, 0)</div>
+              <div class="pill" id="receiverBadge"><span class="accent">수신기</span>준비 중</div>
+            </div>
+            <div class="overlay legend-box">
+              <span class="legend-title">단면 범례</span>
+              <div class="legend-list">
+                <div class="legend-item"><span class="swatch" style="background: rgb(125,170,255)"></span>P 직접/체적파</div>
+                <div class="legend-item"><span class="swatch" style="background: rgb(120,255,235)"></span>P 반사파</div>
+                <div class="legend-item"><span class="swatch" style="background: rgb(255,215,120)"></span>P 임계굴절/선두파</div>
+                <div class="legend-item"><span class="swatch" style="background: rgb(255,145,190)"></span>S 직접/체적파</div>
+                <div class="legend-item"><span class="swatch" style="background: rgb(190,120,255)"></span>S 반사파</div>
+                <div class="legend-item"><span class="swatch" style="background: rgb(255,170,110)"></span>S 임계굴절/선두파</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 주시곡선 -->
+        <section id="graphCard" class="panel view-panel">
+          <div class="view-head">
+            <h3 style="flex:1;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14 L11 10 L14 13 L20 6"/></svg>
+              주시곡선 <span class="kbd">Travel-Time</span>
+            </h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <span class="meta" id="graphScaleBadge">시간창 0–1600</span>
+              <button id="btnExpandGraph" class="btn icon" style="padding: 4px; background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);" title="화면 확대/축소">🔍</button>
+            </div>
+          </div>
+          <div class="canvas-wrap" id="graphViewport">
+            <canvas id="graphCanvas"></canvas>
+            <div class="overlay legend-box">
+              <span class="legend-title">그래프 범례</span>
+              <div class="legend-list">
+                <div class="legend-item"><span class="swatch line" style="background: rgb(125,170,255)"></span>P 직접파</div>
+                <div class="legend-item"><span class="swatch line" style="background: rgb(120,255,235)"></span>P 반사 분기</div>
+                <div class="legend-item"><span class="swatch line" style="background: rgb(255,215,120)"></span>P 임계굴절</div>
+                <div class="legend-item"><span class="swatch line" style="background: rgb(255,145,190)"></span>S 직접파</div>
+                <div class="legend-item"><span class="swatch line" style="background: rgb(255,170,110)"></span>S 임계굴절</div>
+                <div class="legend-item"><span class="swatch line" style="background: rgba(255,255,255,.92)"></span>선두파 envelope</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- 테이블 -->
+      <section id="tables">
+        <div class="panel table-panel">
+          <div class="table-head">
+            <h3>레이어 정보</h3>
+            <span class="tiny" id="layerCountBadge">-</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>깊이 범위</th>
+                  <th>밀도 ρ</th>
+                  <th>Vp</th>
+                  <th>Vs</th>
+                  <th>Vp/Vs</th>
+                </tr>
+              </thead>
+              <tbody id="layerTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel table-panel">
+          <div class="table-head">
+            <h3 style="flex:1;">자동 수신기 첫 도달</h3>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="tiny" id="receiverCountBadge">-</span>
+              <button id="btnExcelDownload" class="btn" style="padding: 4px 8px; font-size: 0.7rem; background: rgba(16, 185, 129, 0.15); border-color: rgba(16, 185, 129, 0.4); color: #a7f3d0;" title="수신기 데이터 엑셀 다운로드">📊 엑셀 다운로드</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>표면 X</th>
+                  <th>오프셋</th>
+                  <th>첫 도달</th>
+                  <th>t</th>
+                  <th>누적</th>
+                </tr>
+              </thead>
+              <tbody id="receiverTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const EPSILON = 1e-4;
+    const INTENSITY_THRESHOLD = 0.1;
+    const GRAPH_POINT_LIMIT = 40000;
+
+    const COLORS = {
+      layerLine: [150, 150, 160],
+      source: [255, 220, 120],
+      receiverIdle: [165, 175, 190],
+      receiverHit: [150, 255, 210],
+      pBody: [125, 170, 255],
+      pReflection: [120, 255, 235],
+      pHead: [255, 215, 120],
+      sBody: [255, 145, 190],
+      sReflection: [190, 120, 255],
+      sHead: [255, 170, 110],
+      envelope: [255, 255, 255],
+      graphAxis: [220, 225, 240],
+      graphGrid: [255, 255, 255],
+    };
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function roundTo(value, digits = 3) {
+      const factor = 10 ** digits;
+      return Math.round(value * factor) / factor;
+    }
+
+    function airLayer(thickness = 100) {
+      return { bulk_modulus: 0, shear_modulus: 0, density: 0, thickness };
+    }
+
+    // 원본 SeismicWaveSimulator 는 bulk_modulus == shear_modulus 로 설정된 예제 config 를 쓰므로
+    // 이 편의 함수도 동일 가정하에 목표 Vp 를 구현한다. (K = μ = M, Vp² = 7M/(3ρ))
+    function vpLayer(vp, density, thickness) {
+      const modulus = roundTo((density * vp * vp) / (7 / 3), 3);
+      return { bulk_modulus: modulus, shear_modulus: modulus, density, thickness };
+    }
+
+    const PRESETS = {
+      basic: {
+        key: 'basic',
+        name: '기본 세팅',
+        tag: 'Default',
+        description: 'P파와 S파를 함께 켜고, 직접파·반사파·임계굴절파를 동시에 비교하는 기본 수평층 시나리오입니다. 오른쪽 그래프에서 P가 먼저, S가 뒤에 나타나며 선두파가 어떻게 바뀌는지 볼 수 있습니다.',
+        insight: '단면에서는 P가 빠르고 S가 느립니다. 그래프에서는 가까운 거리의 직접파, 먼 거리의 임계굴절파, 중간의 반사 branches가 동시에 보입니다.',
+        worldWidth: 2200,
+        sourceX: 180,
+        sourceDepthBelowSurface: 35,
+        particleCount: 12000,
+        speed: 0.18,
+        brightness: 1.15,
+        receiverCount: 49,
+        graphTimeWindow: 1600,
+        settings: { enablePWave: true, enableSWave: true, enableReflections: true, enableHeadWaves: true },
+        config: {
+          Layer: [
+            { bulk_modulus: 0, shear_modulus: 0, density: 0, thickness: 100 },
+            { bulk_modulus: 10, shear_modulus: 10, density: 100, thickness: 100 },
+            { bulk_modulus: 100, shear_modulus: 100, density: 200, thickness: 200 },
+            { bulk_modulus: 500, shear_modulus: 500, density: 300, thickness: 300 },
+            { bulk_modulus: 1000, shear_modulus: 1000, density: 400, thickness: 400 },
+            { bulk_modulus: 1500, shear_modulus: 1500, density: 500, thickness: 'inf' }
+          ]
+        }
+      },
+      manyLayers: {
+        key: 'manyLayers',
+        name: '레이어가 많은 경우',
+        tag: 'Multi-Layer',
+        description: '층이 많아질수록 반사 branches와 임계굴절 branches가 늘어납니다. 다층 구조에서 주시곡선이 여러 갈래로 갈라지는 모습을 보기 위한 프리셋입니다.',
+        insight: '깊은 경계가 많아질수록 반사곡선이 여러 개 생기고, 선두파는 여러 head-wave 후보 중 가장 빠른 branch를 따라갑니다.',
+        worldWidth: 2800,
+        sourceX: 200,
+        sourceDepthBelowSurface: 24,
+        particleCount: 14000,
+        speed: 0.17,
+        brightness: 1.18,
+        receiverCount: 57,
+        graphTimeWindow: 2000,
+        settings: { enablePWave: true, enableSWave: false, enableReflections: true, enableHeadWaves: true },
+        config: {
+          Layer: [
+            airLayer(100),
+            vpLayer(0.72, 110, 70),
+            vpLayer(0.82, 125, 70),
+            vpLayer(0.94, 145, 80),
+            vpLayer(1.08, 165, 90),
+            vpLayer(1.25, 185, 100),
+            vpLayer(1.45, 215, 130),
+            vpLayer(1.68, 245, 'inf')
+          ]
+        }
+      },
+      lowVelocity: {
+        key: 'lowVelocity',
+        name: '중간 저속도층',
+        tag: 'Low-Velocity',
+        description: '중간층 속도가 더 느려지는 저속도층(LVZ) 사례입니다. 선두파만으로는 층을 단순하게 해석하기 어려운 경우를 확인할 수 있습니다.',
+        insight: '중간 저속도층은 선두파 envelope에 명확히 드러나지 않거나 해석을 왜곡할 수 있습니다. 얕은 층과 더 깊은 고속층의 관계를 비교해 보세요.',
+        worldWidth: 2300,
+        sourceX: 180,
+        sourceDepthBelowSurface: 36,
+        particleCount: 12000,
+        speed: 0.18,
+        brightness: 1.2,
+        receiverCount: 49,
+        graphTimeWindow: 1800,
+        settings: { enablePWave: true, enableSWave: false, enableReflections: true, enableHeadWaves: true },
+        config: {
+          Layer: [
+            { bulk_modulus: 0, shear_modulus: 0, density: 0, thickness: 100 },
+            { bulk_modulus: 50, shear_modulus: 50, density: 100, thickness: 100 },
+            { bulk_modulus: 50, shear_modulus: 50, density: 200, thickness: 200 },
+            { bulk_modulus: 500, shear_modulus: 500, density: 300, thickness: 'inf' }
+          ]
+        }
+      },
+      thinLayer: {
+        key: 'thinLayer',
+        name: '얇은 중간층',
+        tag: 'Thin Layer',
+        description: '아주 얇은 중간층은 개별 선두파 구간을 만들지 못해 숨은층이 되기 쉽습니다. 반사 branches는 늘어나지만 envelope는 단순해질 수 있습니다.',
+        insight: '얇은 층은 이론곡선이나 반사파에서는 존재가 보이더라도, 흰색 선두파 envelope에서는 별도 절편을 거의 만들지 못할 수 있습니다.',
+        worldWidth: 2200,
+        sourceX: 170,
+        sourceDepthBelowSurface: 40,
+        particleCount: 12000,
+        speed: 0.18,
+        brightness: 1.18,
+        receiverCount: 49,
+        graphTimeWindow: 1600,
+        settings: { enablePWave: true, enableSWave: false, enableReflections: true, enableHeadWaves: true },
+        config: {
+          Layer: [
+            { bulk_modulus: 0, shear_modulus: 0, density: 0, thickness: 100 },
+            { bulk_modulus: 10, shear_modulus: 10, density: 100, thickness: 300 },
+            { bulk_modulus: 100, shear_modulus: 100, density: 200, thickness: 30 },
+            { bulk_modulus: 500, shear_modulus: 500, density: 300, thickness: 'inf' }
+          ]
+        }
+      },
+      infiniteHalfSpace: {
+        key: 'infiniteHalfSpace',
+        name: '무한 반공간 임계굴절',
+        tag: 'Half-Space',
+        description: '얕은 층 아래에 더 빠른 무한 반공간이 있을 때의 전형적인 임계굴절파 사례입니다. 그래프에서 거의 직선형인 head-wave branch를 확인하기 좋습니다.',
+        insight: '가까운 거리에서는 직접파가, 먼 거리에서는 더 기울기가 작은 직선형 임계굴절 branch가 선두파가 됩니다. 교차점의 거리가 "crossover distance" 입니다.',
+        worldWidth: 2400,
+        sourceX: 170,
+        sourceDepthBelowSurface: 30,
+        particleCount: 11000,
+        speed: 0.19,
+        brightness: 1.15,
+        receiverCount: 51,
+        graphTimeWindow: 1400,
+        settings: { enablePWave: true, enableSWave: false, enableReflections: true, enableHeadWaves: true },
+        config: {
+          Layer: [
+            airLayer(100),
+            vpLayer(0.95, 160, 180),
+            vpLayer(1.9, 220, 'inf')
+          ]
+        }
+      },
+      hiddenLayer: {
+        key: 'hiddenLayer',
+        name: '숨은층 (Blind Zone)',
+        tag: 'Hidden Layer',
+        description: '얇은 고속층 위에 더 빠른 기반암이 있는 경우입니다. 중간 고속층이 존재해도 선두파 envelope에서 독립된 구간을 거의 만들지 못해, 선두파만으로 그 층을 특정하기 어렵습니다.',
+        insight: '이론 head-wave curve는 중간층과 기반암 둘 다 존재하지만, 흰색 envelope는 더 깊은 층으로 바로 이어지는 것처럼 보여 중간 얇은 층이 숨어 보일 수 있습니다.',
+        worldWidth: 2500,
+        sourceX: 180,
+        sourceDepthBelowSurface: 30,
+        particleCount: 12500,
+        speed: 0.19,
+        brightness: 1.18,
+        receiverCount: 55,
+        graphTimeWindow: 1500,
+        settings: { enablePWave: true, enableSWave: false, enableReflections: true, enableHeadWaves: true },
+        config: {
+          Layer: [
+            airLayer(100),
+            vpLayer(1.0, 180, 150),
+            vpLayer(1.5, 190, 20),
+            vpLayer(2.0, 230, 'inf')
+          ]
+        }
+      }
+    };
+
+    function wrapDirection(dir) {
+      let out = dir;
+      while (out >= 2) out -= 2;
+      while (out < 0) out += 2;
+      return out;
+    }
+
+    function expo(x) {
+      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+
+    function rgbString(rgb, alpha = 1) {
+      return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
+    }
+
+    // 원본 SeismicWaveSimulator 의 SnellLaw(theta, v_in, v_out) 을 JS 로 포팅.
+    // theta 단위: 0..2 (1 = π rad). 진행 방향을 입력받아 굴절 후 방향 반환.
+    function snellLaw(thetaInput, vIn, vOut) {
+      let theta = wrapDirection(thetaInput);
+      const absTheta = theta;
+      if (theta >= 1) theta -= 1;
+      theta = Math.abs(0.5 - theta);
+
+      const inVel = Math.abs(vIn) < EPSILON ? EPSILON : vIn;
+      let v = (vOut / inVel) * Math.sin(theta * Math.PI);
+
+      if (Math.abs(v - 1.0) < EPSILON) v = 1.0;
+      else if (Math.abs(v + 1.0) < EPSILON) v = -1.0;
+      else if (!Number.isFinite(v) || v > 1.0) v = 1.0;
+      else if (v < -1.0) v = -1.0;
+
+      let ret = Math.asin(v) / Math.PI;
+      ret = 0.5 - ret;
+
+      if (absTheta <= 0.5) {
+        /* as-is */
+      } else if (absTheta > 0.5 && absTheta <= 1.0) {
+        ret = 1.0 - ret;
+      } else if (absTheta > 1.0 && absTheta <= 1.5) {
+        ret += 1.0;
+      } else if (absTheta > 1.5) {
+        ret = 2.0 - ret;
+      }
+
+      return wrapDirection(ret);
+    }
+
+    function formatNumber(value, digits = 2) {
+      return Number.isFinite(value) ? value.toFixed(digits) : 'INF';
+    }
+
+    function formatDepth(top, bottom) {
+      return `${formatNumber(top, 1)} – ${Number.isFinite(bottom) ? formatNumber(bottom, 1) : 'INF'}`;
+    }
+
+    function familyLabel(entry) {
+      const kindClass = entry.kind === 'p' ? 'p-chip' : 's-chip';
+      const kindLabel = entry.kind.toUpperCase();
+      let familyText = '직접';
+      let familyCls = 'kind-direct';
+      if (entry.family === 'reflection') { familyText = '반사'; familyCls = 'kind-reflection'; }
+      else if (entry.family === 'head') { familyText = '임계굴절'; familyCls = 'kind-head'; }
+      return `<span class="${kindClass}">${kindLabel}</span> <span class="${familyCls}">${familyText}</span>`;
+    }
+
+    function niceStep(maxValue) {
+      if (maxValue <= 0) return 1;
+      const rough = maxValue / 6;
+      const power = 10 ** Math.floor(Math.log10(rough));
+      const fraction = rough / power;
+      let nice = 1;
+      if (fraction > 5) nice = 10;
+      else if (fraction > 2) nice = 5;
+      else if (fraction > 1) nice = 2;
+      return nice * power;
+    }
+
+    // --- 물리 모델 -----------------------------------------------------------
+
+    class Layer {
+      constructor(data, topDepth, bottomDepth) {
+        this.bulkModulus = Number(data.bulk_modulus);
+        this.shearModulus = Number(data.shear_modulus);
+        this.density = Number(data.density);
+        this.topDepth = topDepth;
+        this.bottomDepth = bottomDepth;
+        this.pVelocity = this.density === 0 ? 0 : Math.sqrt((this.bulkModulus + (4 / 3) * this.shearModulus) / this.density);
+        this.sVelocity = this.density === 0 ? 0 : Math.sqrt(this.shearModulus / this.density);
+      }
+
+      isAir() { return this.density === 0; }
+    }
+
+    class WaveParticle {
+      constructor(x, y, direction, kind, options = {}) {
+        this.x = x;
+        this.y = y;
+        this.direction = wrapDirection(direction);
+        this.kind = kind;
+        this.intensity = options.intensity ?? 1.0;
+        this.branch = options.branch ?? 'direct';
+        this.tempLayer = options.tempLayer ?? false;
+        this.previousLayerIndex = options.previousLayerIndex ?? null;
+        this.distance = options.distance ?? 0.0;
+        this.prevDirection = options.prevDirection ?? null;
+        this.movementCos = options.movementCos ?? 0.0;
+        this.movementSin = options.movementSin ?? 0.0;
+        this.refractionData = options.refractionData
+          ? { criticalRefractionRootWave: !!options.refractionData.criticalRefractionRootWave, outDirection: options.refractionData.outDirection ?? 0 }
+          : { criticalRefractionRootWave: false, outDirection: 0 };
+      }
+
+      clone() {
+        return new WaveParticle(this.x, this.y, this.direction, this.kind, {
+          intensity: this.intensity,
+          branch: this.branch,
+          tempLayer: this.tempLayer,
+          previousLayerIndex: this.previousLayerIndex,
+          distance: this.distance,
+          prevDirection: this.prevDirection,
+          movementCos: this.movementCos,
+          movementSin: this.movementSin,
+          refractionData: this.refractionData,
+        });
+      }
+
+      move(magnitude) {
+        if (this.direction !== this.prevDirection) {
+          this.prevDirection = this.direction;
+          this.movementCos = Math.cos(this.direction * Math.PI);
+          this.movementSin = Math.sin(this.direction * Math.PI);
+        }
+        this.x += magnitude * this.movementCos;
+        this.y += magnitude * this.movementSin;
+        this.distance += magnitude / 10000.0;
+      }
+
+      layerChanged(layerIndex) {
+        const previous = this.previousLayerIndex;
+        this.previousLayerIndex = layerIndex;
+        const changed = layerIndex !== previous && previous !== null;
+        if (changed && this.tempLayer) {
+          this.tempLayer = false;
+          return false;
+        }
+        return changed;
+      }
+
+      getIntensity() {
+        if (this.distance === 0) return this.intensity;
+        return this.intensity / (1 + this.distance);
+      }
+
+      manipulateIntensity(coefficient) {
+        if (!Number.isFinite(coefficient)) { this.intensity = 0; return; }
+        this.intensity *= Math.max(0, coefficient);
+      }
+
+      setTempLayer() { this.tempLayer = true; }
+    }
+
+    class SeismicSimulator {
+      constructor() {
+        this.airLayer = new Layer({ bulk_modulus: 0, shear_modulus: 0, density: 0 }, 0, 0);
+        this.layers = [];
+        this.worldWidth = 2200;
+        this.worldHeight = 1200;
+        this.surfaceDepth = 0;
+        this.source = { x: 180, y: 140 };
+        this.receiverArrayMeta = { startX: 0, endX: 0, spacing: 0 };
+        this.surfaceReceivers = [];
+        this.graphPoints = [];
+        this.settings = {
+          particleCount: 12000,
+          speed: 0.18,
+          brightness: 1.15,
+          receiverCount: 49,
+          enablePWave: true,
+          enableSWave: true,
+          enableReflections: true,
+          enableHeadWaves: true,
+          showTheory: true,
+          showObserved: true,
+          showEnvelope: true,
+          showGrid: true,
+          graphTimeWindow: 1600,
+        };
+        this.resetState();
+      }
+
+      resetState() {
+        this.pWave = [];
+        this.sWave = [];
+        this.pRefractedWave = [];
+        this.sRefractedWave = [];
+        this.modelTime = 0;
+        this.running = true;
+      }
+
+      setModelWidth(width) {
+        this.worldWidth = clamp(Number(width) || 2200, 800, 6000);
+      }
+
+      updateSettings(partial) {
+        Object.assign(this.settings, partial);
+      }
+
+      normalizeThickness(raw) {
+        if (typeof raw === 'string') {
+          const value = raw.trim().toLowerCase();
+          if (value === 'inf' || value === 'infinity') return Infinity;
+        }
+        const num = Number(raw);
+        if (!Number.isFinite(num) || num <= 0) {
+          throw new Error(`유효하지 않은 thickness 값: ${raw}`);
+        }
+        return num;
+      }
+
+      parseConfig(configObject) {
+        if (!configObject || !Array.isArray(configObject.Layer) || configObject.Layer.length === 0) {
+          throw new Error('config.Layer 배열이 필요합니다.');
+        }
+
+        const layers = [];
+        let depth = 0;
+
+        configObject.Layer.forEach((entry, idx) => {
+          const thickness = this.normalizeThickness(entry.thickness);
+          const bottom = thickness === Infinity ? Infinity : depth + thickness;
+          const layer = new Layer(entry, depth, bottom);
+          layers.push(layer);
+          depth = bottom;
+          if (!Number.isFinite(depth) && idx !== configObject.Layer.length - 1) {
+            throw new Error('무한대(INF) 두께 레이어는 마지막 레이어여야 합니다.');
+          }
+        });
+
+        this.layers = layers;
+        const solid = this.getSolidLayers();
+        this.surfaceDepth = solid.length ? solid[0].topDepth : 0;
+
+        const finiteBottoms = layers.filter(layer => Number.isFinite(layer.bottomDepth)).map(layer => layer.bottomDepth);
+        const deepestFinite = finiteBottoms.length ? Math.max(...finiteBottoms) : 1000;
+        this.worldHeight = Math.max(700, deepestFinite + Math.max(220, deepestFinite * 0.2));
+      }
+
+      getSolidLayers() {
+        return this.layers.filter(layer => !layer.isAir());
+      }
+
+      getTopSolidThickness() {
+        const solid = this.getSolidLayers();
+        if (!solid.length) return 100;
+        if (!Number.isFinite(solid[0].bottomDepth)) return 250;
+        return solid[0].bottomDepth - solid[0].topDepth;
+      }
+
+      clampSourceDepthBelowSurface(depthBelow) {
+        const maxDepth = Math.max(12, this.getTopSolidThickness() - 8);
+        return clamp(depthBelow, 8, maxDepth);
+      }
+
+      clampSourceX(x) {
+        return clamp(x, 50, Math.max(120, this.worldWidth * 0.42));
+      }
+
+      setSourceFromControls(sourceX, depthBelowSurface, restart = true) {
+        const x = this.clampSourceX(sourceX);
+        const depthBelow = this.clampSourceDepthBelowSurface(depthBelowSurface);
+        this.source = { x, y: this.surfaceDepth + depthBelow };
+        this.rebuildSurveyReceivers();
+        if (restart) this.occurEarthquake();
+      }
+
+      rebuildSurveyReceivers() {
+        const count = Math.max(3, Number(this.settings.receiverCount) || 49);
+        const startX = clamp(this.source.x + 35, 20, this.worldWidth - 40);
+        const endX = Math.max(startX + 10, this.worldWidth - 20);
+        const spacing = count > 1 ? (endX - startX) / (count - 1) : 0;
+        this.receiverArrayMeta = { startX, endX, spacing };
+        this.surfaceReceivers = [];
+        for (let i = 0; i < count; i++) {
+          const x = count === 1 ? startX : startX + spacing * i;
+          this.surfaceReceivers.push({
+            index: i,
+            x,
+            y: this.surfaceDepth,
+            offset: x - this.source.x,
+            arrivals: [],
+            firstArrival: null,
+          });
+        }
+      }
+
+      clearObservations() {
+        this.graphPoints = [];
+        for (const receiver of this.surfaceReceivers) {
+          receiver.arrivals = [];
+          receiver.firstArrival = null;
+        }
+      }
+
+      clearWavesOnly() {
+        this.pWave = [];
+        this.sWave = [];
+        this.pRefractedWave = [];
+        this.sRefractedWave = [];
+        this.modelTime = 0;
+      }
+
+      clearObservedOnly() { this.clearObservations(); }
+
+      getLayerIndex(y) {
+        for (let i = 0; i < this.layers.length; i++) {
+          const layer = this.layers[i];
+          if (y < layer.bottomDepth && y >= layer.topDepth) return i;
+        }
+        if (this.layers.length && y >= this.layers[this.layers.length - 1].topDepth && !Number.isFinite(this.layers[this.layers.length - 1].bottomDepth)) {
+          return this.layers.length - 1;
+        }
+        return -1;
+      }
+
+      getLayerByIndex(index) {
+        if (index < 0 || index >= this.layers.length) return this.airLayer;
+        return this.layers[index];
+      }
+
+      getLayerAt(y) { return this.getLayerByIndex(this.getLayerIndex(y)); }
+
+      getVelocity(kind, layer) {
+        return kind === 'p' ? layer.pVelocity : layer.sVelocity;
+      }
+
+      createCircularWave(kind) {
+        const arr = [];
+        const count = this.settings.particleCount;
+        for (let i = 0; i < count; i++) {
+          arr.push(new WaveParticle(this.source.x, this.source.y, (i / count) * 2, kind, { branch: 'direct' }));
+        }
+        return arr;
+      }
+
+      // 루트(임계굴절 발생용) 파동 입자 생성.
+      // 원본 C++ 구현은 S 굴절파에도 P 속도를 쓰는 버그가 있으나,
+      // 본 포트는 kind 별 정확한 속도를 사용한다 (물리적으로 올바름).
+      createRootRefractedWaves(kind) {
+        const waveArray = [];
+        const index = this.getLayerIndex(this.source.y);
+        if (index < 0 || index >= this.layers.length) return waveArray;
+
+        const sourceLayer = this.layers[index];
+        const sourceVelocity = this.getVelocity(kind, sourceLayer);
+        if (!Number.isFinite(sourceVelocity) || sourceVelocity <= 0) return waveArray;
+
+        for (let i = index + 1; i < this.layers.length; i++) {
+          const vTarget = this.getVelocity(kind, this.layers[i]);
+          if (vTarget <= 0) continue;
+          waveArray.push(new WaveParticle(this.source.x, this.source.y, snellLaw(0, vTarget, sourceVelocity), kind, { branch: 'root' }));
+          waveArray.push(new WaveParticle(this.source.x, this.source.y, snellLaw(1, vTarget, sourceVelocity), kind, { branch: 'root' }));
+        }
+
+        for (let i = 0; i < index; i++) {
+          const vTarget = this.getVelocity(kind, this.layers[i]);
+          if (vTarget <= 0) continue;
+          waveArray.push(new WaveParticle(this.source.x, this.source.y, 1 + snellLaw(0, vTarget, sourceVelocity), kind, { branch: 'root' }));
+          waveArray.push(new WaveParticle(this.source.x, this.source.y, 1 + snellLaw(1, vTarget, sourceVelocity), kind, { branch: 'root' }));
+        }
+
+        return waveArray;
+      }
+
+      occurEarthquake() {
+        this.clearWavesOnly();
+        this.clearObservations();
+
+        this.pWave = this.settings.enablePWave ? this.createCircularWave('p') : [];
+        this.sWave = this.settings.enableSWave ? this.createCircularWave('s') : [];
+        this.pRefractedWave = (this.settings.enablePWave && this.settings.enableHeadWaves) ? this.createRootRefractedWaves('p') : [];
+        this.sRefractedWave = (this.settings.enableSWave && this.settings.enableHeadWaves) ? this.createRootRefractedWaves('s') : [];
+      }
+
+      recordSurfaceArrival(particle) {
+        if (particle.branch === 'root') return;
+        const x = particle.x;
+        if (x < this.source.x - 2 || x > this.worldWidth + 2) return;
+        const offset = x - this.source.x;
+        if (offset < 0) return;
+        const family = particle.branch === 'reflection' ? 'reflection' : (particle.branch === 'head' ? 'head' : 'direct');
+        const entry = {
+          x, offset,
+          time: this.modelTime,
+          kind: particle.kind,
+          family,
+          intensity: particle.getIntensity(),
+        };
+        this.graphPoints.push(entry);
+        if (this.graphPoints.length > GRAPH_POINT_LIMIT) {
+          this.graphPoints.splice(0, this.graphPoints.length - GRAPH_POINT_LIMIT);
+        }
+        this.assignArrivalToReceiver(entry);
+      }
+
+      assignArrivalToReceiver(entry) {
+        const meta = this.receiverArrayMeta;
+        if (!this.surfaceReceivers.length) return;
+        const tolerance = Math.max(4, meta.spacing * 0.55);
+        if (entry.x < meta.startX - tolerance || entry.x > meta.endX + tolerance) return;
+        const idx = meta.spacing <= EPSILON ? 0 : Math.round((entry.x - meta.startX) / meta.spacing);
+        const receiver = this.surfaceReceivers[idx];
+        if (!receiver) return;
+        if (Math.abs(receiver.x - entry.x) > tolerance) return;
+        receiver.arrivals.push(entry);
+        if (!receiver.firstArrival || entry.time < receiver.firstArrival.time) {
+          receiver.firstArrival = entry;
+        }
+      }
+
+      decimateIfNeeded(array) {
+        const maxCount = Math.max(16000, this.settings.particleCount * 3);
+        if (array.length <= maxCount) return array;
+        const reduced = [];
+        const step = array.length / maxCount;
+        for (let i = 0; i < maxCount; i++) {
+          reduced.push(array[Math.floor(i * step)]);
+        }
+        return reduced;
+      }
+
+      nudgeReflectedParticle(reflected, previousLayer, currentLayer) {
+        if (previousLayer.isAir()) return;
+        if (currentLayer.isAir()) {
+          reflected.y = previousLayer.topDepth + 0.8;
+          return;
+        }
+        if (currentLayer.topDepth > previousLayer.topDepth) {
+          reflected.y = currentLayer.topDepth - 0.8;
+        } else {
+          reflected.y = previousLayer.topDepth + 0.8;
+        }
+      }
+
+      calculate(kind, refracted, deltaTime) {
+        const property = kind === 'p'
+          ? (refracted ? 'pRefractedWave' : 'pWave')
+          : (refracted ? 'sRefractedWave' : 'sWave');
+
+        const wave = this[property];
+        if (!wave || wave.length === 0) return;
+
+        const newWave = [];
+        const headEmissions = [];
+        const cullX = this.worldWidth + 80;
+        const cullY = this.worldHeight + 160;
+
+        for (let i = 0; i < wave.length; i++) {
+          const particle = wave[i];
+          const layerIndex = this.getLayerIndex(particle.y);
+          const layer = this.getLayerByIndex(layerIndex);
+
+          if (
+            particle.x >= -80 &&
+            particle.y >= -40 &&
+            particle.x <= cullX &&
+            particle.y <= cullY &&
+            expo(particle.getIntensity()) > INTENSITY_THRESHOLD
+          ) {
+            const previousLayer = this.getLayerByIndex(particle.previousLayerIndex);
+
+            if (particle.layerChanged(layerIndex)) {
+              if (layer.isAir() && !previousLayer.isAir()) {
+                this.recordSurfaceArrival(particle);
+              }
+
+              let velocity = this.getVelocity(kind, layer);
+              let previousVelocity = this.getVelocity(kind, previousLayer);
+              if (!Number.isFinite(velocity)) velocity = 0;
+              if (!Number.isFinite(previousVelocity)) previousVelocity = 0;
+
+              const denominator = velocity + previousVelocity;
+              const reflectionCoefficient = Math.abs(denominator) < EPSILON ? 1 : Math.abs((velocity - previousVelocity) / denominator);
+
+              if (!layer.isAir()) {
+                const transmitted = particle.clone();
+                const previousDirection = transmitted.direction;
+                transmitted.direction = snellLaw(transmitted.direction, previousVelocity, velocity);
+                if (refracted) {
+                  if (Math.abs(transmitted.direction) < EPSILON) {
+                    transmitted.direction = 0;
+                    transmitted.refractionData.criticalRefractionRootWave = true;
+                    transmitted.refractionData.outDirection = 2.0 - previousDirection;
+                  } else if (Math.abs(transmitted.direction - 1) < EPSILON) {
+                    transmitted.direction = 1;
+                    transmitted.refractionData.criticalRefractionRootWave = true;
+                    transmitted.refractionData.outDirection = 2.0 - previousDirection;
+                  }
+                }
+                transmitted.manipulateIntensity(1 - reflectionCoefficient);
+                newWave.push(transmitted);
+              }
+
+              if (!refracted && this.settings.enableReflections && !previousLayer.isAir()) {
+                const reflected = particle.clone();
+                reflected.direction = wrapDirection(-reflected.direction + 2.0);
+                reflected.branch = 'reflection';
+                reflected.setTempLayer();
+                reflected.manipulateIntensity(reflectionCoefficient);
+                this.nudgeReflectedParticle(reflected, previousLayer, layer);
+                newWave.push(reflected);
+              }
+            } else {
+              if (refracted && particle.refractionData.criticalRefractionRootWave) {
+                const emitted = particle.clone();
+                emitted.direction = wrapDirection(emitted.refractionData.outDirection);
+                emitted.refractionData = { criticalRefractionRootWave: false, outDirection: 0 };
+                emitted.setTempLayer();
+                emitted.branch = 'head';
+                headEmissions.push(emitted);
+              }
+              newWave.push(particle);
+            }
+          }
+        }
+
+        for (let i = 0; i < newWave.length; i++) {
+          const particle = newWave[i];
+          const layer = this.getLayerAt(particle.y);
+          const velocity = this.getVelocity(kind, layer);
+          if (velocity > 0) particle.move(velocity * deltaTime);
+        }
+
+        const decimatedNewWave = this.decimateIfNeeded(newWave);
+        const decimatedHead = this.decimateIfNeeded(headEmissions);
+
+        if (refracted) {
+          if (decimatedHead.length) {
+            const bodyProp = kind === 'p' ? 'pWave' : 'sWave';
+            const bodyWave = this[bodyProp] || [];
+            for (let i = 0; i < bodyWave.length; i++) decimatedHead.push(bodyWave[i]);
+            this[bodyProp] = this.decimateIfNeeded(decimatedHead);
+          }
+          this[property] = decimatedNewWave;
+        } else {
+          this[property] = decimatedNewWave;
+        }
+      }
+
+      update(frameDeltaMs) {
+        if (!this.running) return;
+        const deltaTime = frameDeltaMs * this.settings.speed * 0.5;
+        if (deltaTime <= 0) return;
+        this.modelTime += deltaTime;
+
+        if (this.settings.enablePWave) this.calculate('p', false, deltaTime);
+        else this.pWave = [];
+
+        if (this.settings.enableSWave) this.calculate('s', false, deltaTime);
+        else this.sWave = [];
+
+        if (this.settings.enableHeadWaves && this.settings.enablePWave) this.calculate('p', true, deltaTime);
+        else this.pRefractedWave = [];
+
+        if (this.settings.enableHeadWaves && this.settings.enableSWave) this.calculate('s', true, deltaTime);
+        else this.sRefractedWave = [];
+      }
+    }
+
+    // --- UI ------------------------------------------------------------------
+
+    const ui = {
+      presetGrid: document.getElementById('presetGrid'),
+      presetNote: document.getElementById('presetNote'),
+      applyPresetBtn: document.getElementById('applyPresetBtn'),
+      restartBtn: document.getElementById('restartBtn'),
+      pauseBtn: document.getElementById('pauseBtn'),
+      modelWidthInput: document.getElementById('modelWidthInput'),
+      receiverCountRange: document.getElementById('receiverCountRange'),
+      receiverCountValue: document.getElementById('receiverCountValue'),
+      sourceXRange: document.getElementById('sourceXRange'),
+      sourceXValue: document.getElementById('sourceXValue'),
+      sourceDepthRange: document.getElementById('sourceDepthRange'),
+      sourceDepthValue: document.getElementById('sourceDepthValue'),
+      togglePWave: document.getElementById('togglePWave'),
+      toggleSWave: document.getElementById('toggleSWave'),
+      toggleReflections: document.getElementById('toggleReflections'),
+      toggleHeadWaves: document.getElementById('toggleHeadWaves'),
+      toggleTheory: document.getElementById('toggleTheory'),
+      toggleObserved: document.getElementById('toggleObserved'),
+      toggleEnvelope: document.getElementById('toggleEnvelope'),
+      toggleGrid: document.getElementById('toggleGrid'),
+      graphTimeRange: document.getElementById('graphTimeRange'),
+      graphTimeValue: document.getElementById('graphTimeValue'),
+      particleRange: document.getElementById('particleRange'),
+      particleValue: document.getElementById('particleValue'),
+      speedRange: document.getElementById('speedRange'),
+      speedValue: document.getElementById('speedValue'),
+      brightnessRange: document.getElementById('brightnessRange'),
+      brightnessValue: document.getElementById('brightnessValue'),
+      configEditor: document.getElementById('configEditor'),
+      applyConfigBtn: document.getElementById('applyConfigBtn'),
+      restorePresetJsonBtn: document.getElementById('restorePresetJsonBtn'),
+      clearObservedBtn: document.getElementById('clearObservedBtn'),
+      status: document.getElementById('status'),
+      statusText: document.getElementById('statusText'),
+      insight: document.getElementById('insight'),
+      sourceBadge: document.getElementById('sourceBadge'),
+      receiverBadge: document.getElementById('receiverBadge'),
+      graphScaleBadge: document.getElementById('graphScaleBadge'),
+      simHeadMeta: document.getElementById('simHeadMeta'),
+      layerTableBody: document.getElementById('layerTableBody'),
+      receiverTableBody: document.getElementById('receiverTableBody'),
+      layerCountBadge: document.getElementById('layerCountBadge'),
+      receiverCountBadge: document.getElementById('receiverCountBadge'),
+      statP: document.getElementById('statP'),
+      statS: document.getElementById('statS'),
+      statRoot: document.getElementById('statRoot'),
+      statGraph: document.getElementById('statGraph'),
+      statReceivers: document.getElementById('statReceivers'),
+      statTime: document.getElementById('statTime'),
+      simCanvas: document.getElementById('simCanvas'),
+      graphCanvas: document.getElementById('graphCanvas'),
+      simViewport: document.getElementById('simViewport'),
+      graphViewport: document.getElementById('graphViewport'),
+    };
+
+    const simCtx = ui.simCanvas.getContext('2d');
+    const graphCtx = ui.graphCanvas.getContext('2d');
+
+    const app = {
+      simDpr: Math.max(1, window.devicePixelRatio || 1),
+      graphDpr: Math.max(1, window.devicePixelRatio || 1),
+      currentPresetKey: 'basic',
+      theoryDirty: true,
+      theoryCache: { curves: [], envelope: [], maxTime: 100, maxOffset: 100 },
+      layout: {
+        sim: { width: 1, height: 1, padding: 22, scale: 1, offsetX: 0, offsetY: 0 },
+        graph: { width: 1, height: 1, left: 56, right: 18, top: 18, bottom: 38 }
+      },
+      lastFrameTime: performance.now(),
+      lastPanelUpdate: 0,
+    };
+
+    const sim = new SeismicSimulator();
+
+    function setStatus(text, kind = '') {
+      ui.statusText.textContent = text;
+      ui.status.className = 'status-card' + (kind ? ' ' + kind : '');
+    }
+
+    function buildPresetGrid() {
+      ui.presetGrid.innerHTML = '';
+      Object.values(PRESETS).forEach(preset => {
+        const tile = document.createElement('button');
+        tile.className = 'preset-tile';
+        tile.dataset.presetKey = preset.key;
+        tile.type = 'button';
+        tile.innerHTML = `<span class="tag">${preset.tag || 'Scene'}</span><span class="name">${preset.name}</span>`;
+        tile.addEventListener('click', () => {
+          selectPresetTile(preset.key);
+          updatePresetDescription();
+        });
+        ui.presetGrid.appendChild(tile);
+      });
+      selectPresetTile(app.currentPresetKey);
+    }
+
+    function selectPresetTile(key) {
+      app.currentPresetKey = key;
+      const tiles = ui.presetGrid.querySelectorAll('.preset-tile');
+      tiles.forEach(t => t.classList.toggle('active', t.dataset.presetKey === key));
+    }
+
+    function updatePresetDescription() {
+      const preset = PRESETS[app.currentPresetKey];
+      if (!preset) return;
+      ui.presetNote.innerHTML = `<strong>${preset.name}</strong> — ${preset.description}`;
+      ui.insight.innerHTML = `<strong>관찰 포인트:</strong> ${preset.insight}`;
+    }
+
+    function syncRangeLabels() {
+      ui.receiverCountValue.textContent = ui.receiverCountRange.value;
+      ui.sourceXValue.textContent = Number(ui.sourceXRange.value).toFixed(0);
+      ui.sourceDepthValue.textContent = Number(ui.sourceDepthRange.value).toFixed(0);
+      ui.graphTimeValue.textContent = Number(ui.graphTimeRange.value).toFixed(0);
+      ui.particleValue.textContent = Number(ui.particleRange.value).toLocaleString('en-US');
+      ui.speedValue.textContent = `${Number(ui.speedRange.value).toFixed(2)}×`;
+      ui.brightnessValue.textContent = Number(ui.brightnessRange.value).toFixed(2);
+      updateGraphScaleBadge();
+    }
+
+    function getGraphTimeWindow() {
+      return clamp(Number(ui.graphTimeRange.value) || Number(sim.settings.graphTimeWindow) || 1600, 300, 5000);
+    }
+
+    function updateGraphScaleBadge() {
+      const yMax = getGraphTimeWindow();
+      ui.graphScaleBadge.textContent = `시간창 0–${yMax.toFixed(0)} · 오프셋 0–${Math.max(10, app.theoryCache.maxOffset).toFixed(0)}`;
+    }
+
+    function updateSourceControlBounds() {
+      const maxX = Math.max(120, Math.floor(sim.worldWidth * 0.42));
+      ui.sourceXRange.max = String(maxX);
+      ui.sourceXRange.value = String(clamp(Number(ui.sourceXRange.value), Number(ui.sourceXRange.min), maxX));
+
+      const maxDepth = Math.max(12, Math.floor(sim.getTopSolidThickness() - 8));
+      ui.sourceDepthRange.max = String(maxDepth);
+      ui.sourceDepthRange.value = String(clamp(Number(ui.sourceDepthRange.value), Number(ui.sourceDepthRange.min), maxDepth));
+    }
+
+    function updateBadges() {
+      ui.sourceBadge.innerHTML = `<span class="accent">진원</span>x=${sim.source.x.toFixed(1)}, h=${(sim.source.y - sim.surfaceDepth).toFixed(1)}`;
+      const meta = sim.receiverArrayMeta;
+      ui.receiverBadge.innerHTML = `<span class="accent">수신기</span>${sim.surfaceReceivers.length}개 · 간격 ${meta.spacing.toFixed(1)}`;
+      const densityEst = sim.pWave.length + sim.sWave.length + sim.pRefractedWave.length + sim.sRefractedWave.length;
+      ui.simHeadMeta.textContent = `입자 ${densityEst.toLocaleString('en-US')} · t=${sim.modelTime.toFixed(1)}`;
+    }
+
+    function markTheoryDirty() { app.theoryDirty = true; }
+
+    function getCurrentConfigFromEditor() { 
+      // UI 상태로부터 config 객체를 생성합니다.
+      const Layer = app.currentLayersUiState.map(L => {
+        let density = L.density;
+        let shear_modulus = 0;
+        let bulk_modulus = 0;
+        if (density > 0) {
+           shear_modulus = density * L.vs * L.vs;
+           bulk_modulus = density * L.vp * L.vp - (4/3) * shear_modulus;
+        }
+        let thickness = L.thickness;
+        return {
+           bulk_modulus: roundTo(bulk_modulus, 3),
+           shear_modulus: roundTo(shear_modulus, 3),
+           density: density,
+           thickness: thickness
+        };
+      });
+      return { Layer };
+    }
+
+    function applyDisplaySettingsFromUI() {
+      sim.updateSettings({
+        showTheory: ui.toggleTheory.checked,
+        showObserved: ui.toggleObserved.checked,
+        showEnvelope: ui.toggleEnvelope.checked,
+        showGrid: ui.toggleGrid.checked,
+        graphTimeWindow: getGraphTimeWindow(),
+        brightness: Number(ui.brightnessRange.value),
+        speed: Number(ui.speedRange.value),
+      });
+    }
+
+    function restartWithCurrentControls(parseEditor = false) {
+      try {
+        if (parseEditor) {
+          sim.setModelWidth(Number(ui.modelWidthInput.value));
+          sim.parseConfig(getCurrentConfigFromEditor());
+        }
+        sim.updateSettings({
+          particleCount: Number(ui.particleRange.value),
+          speed: Number(ui.speedRange.value),
+          brightness: Number(ui.brightnessRange.value),
+          receiverCount: Number(ui.receiverCountRange.value),
+          enablePWave: ui.togglePWave.checked,
+          enableSWave: ui.toggleSWave.checked,
+          enableReflections: ui.toggleReflections.checked,
+          enableHeadWaves: ui.toggleHeadWaves.checked,
+          showTheory: ui.toggleTheory.checked,
+          showObserved: ui.toggleObserved.checked,
+          showEnvelope: ui.toggleEnvelope.checked,
+          showGrid: ui.toggleGrid.checked,
+          graphTimeWindow: getGraphTimeWindow(),
+        });
+        updateSourceControlBounds();
+        sim.setSourceFromControls(Number(ui.sourceXRange.value), Number(ui.sourceDepthRange.value), false);
+        sim.occurEarthquake();
+        updateBadges();
+        rebuildTables();
+        updateStats();
+        resizeAll();
+        markTheoryDirty();
+        setStatus('현재 설정으로 재실행했습니다.', 'ok');
+      } catch (error) {
+        setStatus(`설정 적용 실패: ${error.message}`, 'error');
+      }
+    }
+
+    function renderLayerUi() {
+      const container = document.getElementById('layerUiContainer');
+      container.innerHTML = '';
+      
+      app.currentLayersUiState.forEach((layer, index) => {
+        const card = document.createElement('div');
+        card.className = 'layer-card';
+        const isAir = layer.density === 0;
+        
+        let title = isAir ? `Layer ${index + 1} (Air)` : `Layer ${index + 1}`;
+        
+        card.innerHTML = `
+          <div class="layer-card-header">
+            <span>${title}</span>
+            <button class="btn-remove" data-index="${index}">삭제</button>
+          </div>
+          <div class="layer-card-controls">
+            <label class="field">
+              <span class="field-label" style="justify-content:space-between">
+                두께 (Thickness)
+                <label style="display:flex; gap:4px; align-items:center; cursor:pointer;"><input type="checkbox" class="inf-toggle" data-index="${index}" ${layer.thickness === 'INF' ? 'checked' : ''} /> 무한대(INF)</label>
+              </span>
+              <div class="range-row" style="${layer.thickness === 'INF' ? 'opacity:0.3; pointer-events:none;' : ''}">
+                <input type="range" min="10" max="1500" step="10" value="${layer.thickness === 'INF' ? 100 : layer.thickness}" class="layer-thick-range" data-index="${index}" />
+                <span class="value-badge">${layer.thickness}</span>
+              </div>
+            </label>
+            <label class="field">
+              <span class="field-label">밀도 (Density) <span class="help-tip" title="0으로 설정시 공기층(Air Layer)이 됩니다.">?</span></span>
+              <div class="range-row">
+                <input type="range" min="0" max="800" step="5" value="${layer.density}" class="layer-density-range" data-index="${index}" />
+                <span class="value-badge">${layer.density}</span>
+              </div>
+            </label>
+            <label class="field" style="${isAir ? 'display:none;' : ''}">
+              <span class="field-label">P파 속도 (Vp)</span>
+              <div class="range-row">
+                <input type="range" min="0.1" max="4.0" step="0.01" value="${layer.vp}" class="layer-vp-range" data-index="${index}" />
+                <span class="value-badge">${layer.vp.toFixed(2)}</span>
+              </div>
+            </label>
+            <label class="field" style="${isAir ? 'display:none;' : ''}">
+              <span class="field-label">S파 속도 (Vs)</span>
+              <div class="range-row">
+                <input type="range" min="0" max="4.0" step="0.01" value="${layer.vs}" class="layer-vs-range" data-index="${index}" />
+                <span class="value-badge">${layer.vs.toFixed(2)}</span>
+              </div>
+            </label>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+      
+      container.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          app.currentLayersUiState.splice(idx, 1);
+          renderLayerUi();
+        });
+      });
+      container.querySelectorAll('.inf-toggle').forEach(chk => {
+        chk.addEventListener('change', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          app.currentLayersUiState[idx].thickness = e.target.checked ? 'INF' : 100;
+          renderLayerUi();
+        });
+      });
+      container.querySelectorAll('.layer-thick-range').forEach(rng => {
+        rng.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          app.currentLayersUiState[idx].thickness = parseInt(e.target.value);
+          e.target.nextElementSibling.textContent = e.target.value;
+        });
+      });
+      container.querySelectorAll('.layer-density-range').forEach(rng => {
+        rng.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          const val = parseInt(e.target.value);
+          const wasAir = app.currentLayersUiState[idx].density === 0;
+          app.currentLayersUiState[idx].density = val;
+          e.target.nextElementSibling.textContent = val;
+          if (val === 0 || wasAir) renderLayerUi();
+        });
+      });
+      container.querySelectorAll('.layer-vp-range').forEach(rng => {
+        rng.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          app.currentLayersUiState[idx].vp = parseFloat(e.target.value);
+          e.target.nextElementSibling.textContent = app.currentLayersUiState[idx].vp.toFixed(2);
+        });
+      });
+      container.querySelectorAll('.layer-vs-range').forEach(rng => {
+        rng.addEventListener('input', (e) => {
+          const idx = parseInt(e.target.dataset.index);
+          app.currentLayersUiState[idx].vs = parseFloat(e.target.value);
+          e.target.nextElementSibling.textContent = app.currentLayersUiState[idx].vs.toFixed(2);
+        });
+      });
+    }
+
+    function loadPresetIntoEditor(key) {
+      const preset = PRESETS[key];
+      ui.configEditor.value = JSON.stringify(preset.config, null, 2);
+      
+      // Build UI state from config
+      app.currentLayersUiState = preset.config.Layer.map(L => {
+        let density = Number(L.density);
+        let vp = 0;
+        let vs = 0;
+        if (density > 0) {
+           vs = Math.sqrt(L.shear_modulus / density);
+           vp = Math.sqrt((L.bulk_modulus + (4/3)*L.shear_modulus) / density);
+        }
+        let thickness = String(L.thickness).toUpperCase() === 'INF' ? 'INF' : Number(L.thickness);
+        return { density, vp, vs, thickness };
+      });
+      
+      renderLayerUi();
+    }
+
+    function applyPreset(key) {
+      const preset = PRESETS[key];
+      if (!preset) return;
+      app.currentPresetKey = key;
+      selectPresetTile(key);
+      ui.modelWidthInput.value = String(preset.worldWidth);
+      ui.receiverCountRange.value = String(preset.receiverCount);
+      ui.sourceXRange.value = String(preset.sourceX);
+      ui.sourceDepthRange.value = String(preset.sourceDepthBelowSurface);
+      ui.particleRange.value = String(preset.particleCount);
+      ui.speedRange.value = String(preset.speed);
+      ui.brightnessRange.value = String(preset.brightness);
+      ui.graphTimeRange.value = String(preset.graphTimeWindow || 1600);
+      ui.togglePWave.checked = preset.settings.enablePWave;
+      ui.toggleSWave.checked = preset.settings.enableSWave;
+      ui.toggleReflections.checked = preset.settings.enableReflections;
+      ui.toggleHeadWaves.checked = preset.settings.enableHeadWaves;
+      ui.toggleTheory.checked = true;
+      ui.toggleObserved.checked = true;
+      ui.toggleEnvelope.checked = true;
+      ui.toggleGrid.checked = true;
+      loadPresetIntoEditor(key);
+      updatePresetDescription();
+      syncRangeLabels();
+      restartWithCurrentControls(true);
+      setStatus(`프리셋 "${preset.name}" 을(를) 적용했습니다.`, 'ok');
+    }
+
+    function rebuildTables() {
+      ui.layerTableBody.innerHTML = '';
+      sim.layers.forEach((layer, index) => {
+        const tr = document.createElement('tr');
+        const vpvs = (layer.pVelocity > 0 && layer.sVelocity > 0) ? (layer.pVelocity / layer.sVelocity).toFixed(3) : '-';
+        tr.innerHTML = `
+          <td>${index}</td>
+          <td>${formatDepth(layer.topDepth, layer.bottomDepth)}</td>
+          <td>${formatNumber(layer.density, 1)}</td>
+          <td><span class="p-chip">${formatNumber(layer.pVelocity, 3)}</span></td>
+          <td><span class="s-chip">${formatNumber(layer.sVelocity, 3)}</span></td>
+          <td>${vpvs}</td>
+        `;
+        ui.layerTableBody.appendChild(tr);
+      });
+      ui.layerCountBadge.textContent = `총 ${sim.layers.length} 층 (공기층 포함)`;
+
+      ui.receiverTableBody.innerHTML = '';
+      sim.surfaceReceivers.forEach(receiver => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${receiver.index + 1}</td>
+          <td>${receiver.x.toFixed(1)}</td>
+          <td>${receiver.offset.toFixed(1)}</td>
+          <td>${receiver.firstArrival ? familyLabel(receiver.firstArrival) : '<span style="color:var(--muted);">-</span>'}</td>
+          <td>${receiver.firstArrival ? receiver.firstArrival.time.toFixed(2) : '-'}</td>
+          <td>${receiver.arrivals.length}</td>
+        `;
+        ui.receiverTableBody.appendChild(tr);
+      });
+      const hits = sim.surfaceReceivers.filter(r => r.firstArrival).length;
+      ui.receiverCountBadge.textContent = `${hits} / ${sim.surfaceReceivers.length} 도달`;
+    }
+
+    function updateStats() {
+      ui.statP.textContent = (sim.pWave.length + sim.pRefractedWave.length).toLocaleString('en-US');
+      ui.statS.textContent = (sim.sWave.length + sim.sRefractedWave.length).toLocaleString('en-US');
+      ui.statRoot.textContent = (sim.pRefractedWave.length + sim.sRefractedWave.length).toLocaleString('en-US');
+      ui.statGraph.textContent = sim.graphPoints.length.toLocaleString('en-US');
+      ui.statReceivers.textContent = sim.surfaceReceivers.filter(r => r.firstArrival).length.toString();
+      ui.statTime.textContent = sim.modelTime.toFixed(1);
+    }
+
+    function resizeCanvas(canvas, viewport, ctxRef, key) {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const rect = viewport.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      ctxRef.setTransform(dpr, 0, 0, dpr, 0, 0);
+      app[`${key}Dpr`] = dpr;
+      if (key === 'sim') {
+        const padding = 26;
+        const scaleX = (rect.width - padding * 2) / sim.worldWidth;
+        const scaleY = (rect.height - padding * 2) / sim.worldHeight;
+        const scale = Math.max(0.03, Math.min(scaleX, scaleY));
+        app.layout.sim = {
+          width: rect.width, height: rect.height, padding, scale,
+          offsetX: padding, offsetY: padding,
+        };
+      } else {
+        app.layout.graph = {
+          width: rect.width, height: rect.height,
+          left: 58, right: 20, top: 20, bottom: 40,
+        };
+      }
+    }
+
+    function resizeAll() {
+      resizeCanvas(ui.simCanvas, ui.simViewport, simCtx, 'sim');
+      resizeCanvas(ui.graphCanvas, ui.graphViewport, graphCtx, 'graph');
+      renderAll();
+    }
+
+    function worldToScreen(x, y) {
+      return {
+        x: x * app.layout.sim.scale + app.layout.sim.offsetX,
+        y: y * app.layout.sim.scale + app.layout.sim.offsetY,
+      };
+    }
+
+    function screenToWorldSim(x, y) {
+      return {
+        x: (x - app.layout.sim.offsetX) / app.layout.sim.scale,
+        y: (y - app.layout.sim.offsetY) / app.layout.sim.scale,
+      };
+    }
+
+    // --- 렌더링: 단면 -------------------------------------------------------
+
+    function drawSimBackground() {
+      const w = app.layout.sim.width;
+      const h = app.layout.sim.height;
+      const g = simCtx.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, 'rgba(12, 18, 30, 1)');
+      g.addColorStop(1, 'rgba(5, 8, 14, 1)');
+      simCtx.fillStyle = g;
+      simCtx.fillRect(0, 0, w, h);
+    }
+
+    function drawSimGrid() {
+      if (!sim.settings.showGrid) return;
+      const w = app.layout.sim.width;
+      const h = app.layout.sim.height;
+      const spacingWorld = app.layout.sim.scale > 0.75 ? 50 : 100;
+      simCtx.save();
+      simCtx.strokeStyle = 'rgba(255,255,255,0.045)';
+      simCtx.lineWidth = 1;
+      simCtx.beginPath();
+      for (let x = 0; x <= sim.worldWidth; x += spacingWorld) {
+        const sx = x * app.layout.sim.scale + app.layout.sim.offsetX;
+        simCtx.moveTo(sx, 0); simCtx.lineTo(sx, h);
+      }
+      for (let y = 0; y <= sim.worldHeight; y += spacingWorld) {
+        const sy = y * app.layout.sim.scale + app.layout.sim.offsetY;
+        simCtx.moveTo(0, sy); simCtx.lineTo(w, sy);
+      }
+      simCtx.stroke();
+      simCtx.restore();
+    }
+
+    function drawLayers() {
+      const fillWidth = sim.worldWidth * app.layout.sim.scale;
+      simCtx.save();
+      sim.layers.forEach((layer, index) => {
+        const topY = layer.topDepth * app.layout.sim.scale + app.layout.sim.offsetY;
+        const bottomY = Number.isFinite(layer.bottomDepth)
+          ? layer.bottomDepth * app.layout.sim.scale + app.layout.sim.offsetY
+          : app.layout.sim.height;
+        const fillHeight = Math.max(0, bottomY - topY);
+        if (layer.isAir()) {
+          simCtx.fillStyle = 'rgba(180, 210, 255, 0.045)';
+        } else {
+          const depthFactor = Math.min(1, (index - 1) / Math.max(1, sim.layers.length - 2));
+          const alpha = 0.035 + depthFactor * 0.06 + (index % 2) * 0.015;
+          simCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        }
+        simCtx.fillRect(app.layout.sim.offsetX, topY, fillWidth, fillHeight);
+      });
+
+      // 레이어 경계선과 라벨
+      simCtx.strokeStyle = rgbString(COLORS.layerLine, 0.55);
+      simCtx.lineWidth = 1;
+      simCtx.setLineDash([]);
+      sim.layers.forEach((layer, idx) => {
+        const y = layer.topDepth * app.layout.sim.scale + app.layout.sim.offsetY;
+        simCtx.beginPath();
+        simCtx.moveTo(app.layout.sim.offsetX, y);
+        simCtx.lineTo(app.layout.sim.offsetX + fillWidth, y);
+        simCtx.stroke();
+
+        // 표면 강조
+        if (idx > 0 && sim.layers[idx - 1].isAir()) {
+          simCtx.strokeStyle = 'rgba(127, 243, 207, 0.4)';
+          simCtx.lineWidth = 1.5;
+          simCtx.beginPath();
+          simCtx.moveTo(app.layout.sim.offsetX, y);
+          simCtx.lineTo(app.layout.sim.offsetX + fillWidth, y);
+          simCtx.stroke();
+          simCtx.strokeStyle = rgbString(COLORS.layerLine, 0.55);
+          simCtx.lineWidth = 1;
+        }
+
+        // 속도 라벨 (오른쪽)
+        if (!layer.isAir() && app.layout.sim.scale > 0.05) {
+          const midY = (Number.isFinite(layer.bottomDepth)
+            ? (layer.topDepth + layer.bottomDepth) / 2
+            : layer.topDepth + 150) * app.layout.sim.scale + app.layout.sim.offsetY;
+          const labelX = app.layout.sim.offsetX + fillWidth - 8;
+          simCtx.fillStyle = 'rgba(182, 194, 224, 0.55)';
+          simCtx.font = '10px Inter, system-ui, sans-serif';
+          simCtx.textAlign = 'right';
+          simCtx.fillText(`#${idx} · Vp=${layer.pVelocity.toFixed(2)}`, labelX, midY);
+        }
+      });
+      simCtx.textAlign = 'left';
+
+      const lastLayer = sim.layers[sim.layers.length - 1];
+      if (lastLayer && Number.isFinite(lastLayer.bottomDepth)) {
+        const y = lastLayer.bottomDepth * app.layout.sim.scale + app.layout.sim.offsetY;
+        simCtx.beginPath();
+        simCtx.moveTo(app.layout.sim.offsetX, y);
+        simCtx.lineTo(app.layout.sim.offsetX + fillWidth, y);
+        simCtx.stroke();
+      }
+      simCtx.restore();
+    }
+
+    function getWaveColor(particle) {
+      if (particle.kind === 'p') {
+        if (particle.branch === 'reflection') return COLORS.pReflection;
+        if (particle.branch === 'head' || particle.branch === 'root') return COLORS.pHead;
+        return COLORS.pBody;
+      }
+      if (particle.branch === 'reflection') return COLORS.sReflection;
+      if (particle.branch === 'head' || particle.branch === 'root') return COLORS.sHead;
+      return COLORS.sBody;
+    }
+
+    function drawWaveGroup(waves) {
+      if (!waves || !waves.length) return;
+      const size = 2.0;
+      const buckets = new Map();
+      simCtx.save();
+      simCtx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < waves.length; i++) {
+        const wave = waves[i];
+        const p = worldToScreen(wave.x, wave.y);
+        if (p.x < -8 || p.x > app.layout.sim.width + 8 || p.y < -8 || p.y > app.layout.sim.height + 8) continue;
+        const intensity = clamp(expo(wave.getIntensity()) * sim.settings.brightness, 0, 1);
+        const key = `${wave.kind}:${wave.branch}:${Math.floor(intensity * 6)}`;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push({ x: p.x, y: p.y, intensity, color: getWaveColor(wave) });
+      }
+      for (const points of buckets.values()) {
+        if (!points.length) continue;
+        const intensity = points[0].intensity;
+        const color = points[0].color;
+        simCtx.fillStyle = rgbString(color, 0.12 + intensity * 0.88);
+        for (let i = 0; i < points.length; i++) {
+          const p = points[i];
+          simCtx.fillRect(p.x - size * 0.5, p.y - size * 0.5, size, size);
+        }
+      }
+      simCtx.restore();
+    }
+
+    function drawSourceAndReceivers() {
+      const source = worldToScreen(sim.source.x, sim.source.y);
+      simCtx.save();
+
+      // 진원 외곽 펄스
+      const pulse = 5 + 3 * Math.sin(sim.modelTime * 0.12);
+      const grad = simCtx.createRadialGradient(source.x, source.y, 0, source.x, source.y, pulse + 8);
+      grad.addColorStop(0, rgbString(COLORS.source, 0.5));
+      grad.addColorStop(1, rgbString(COLORS.source, 0));
+      simCtx.fillStyle = grad;
+      simCtx.beginPath();
+      simCtx.arc(source.x, source.y, pulse + 8, 0, Math.PI * 2);
+      simCtx.fill();
+
+      // 진원 십자
+      simCtx.strokeStyle = rgbString(COLORS.source, 0.95);
+      simCtx.lineWidth = 1.8;
+      simCtx.beginPath();
+      simCtx.moveTo(source.x - 8, source.y); simCtx.lineTo(source.x + 8, source.y);
+      simCtx.moveTo(source.x, source.y - 8); simCtx.lineTo(source.x, source.y + 8);
+      simCtx.stroke();
+      simCtx.beginPath();
+      simCtx.arc(source.x, source.y, 3.6, 0, Math.PI * 2);
+      simCtx.fillStyle = rgbString(COLORS.source, 1);
+      simCtx.fill();
+
+      // 수신기
+      const labelEvery = sim.surfaceReceivers.length > 45 ? 5 : 3;
+      for (let i = 0; i < sim.surfaceReceivers.length; i++) {
+        const receiver = sim.surfaceReceivers[i];
+        const p = worldToScreen(receiver.x, receiver.y);
+        const hit = !!receiver.firstArrival;
+        const color = hit ? COLORS.receiverHit : COLORS.receiverIdle;
+        const size = 7;
+        simCtx.fillStyle = rgbString(color, hit ? 0.92 : 0.55);
+        simCtx.strokeStyle = rgbString(color, 1);
+        simCtx.lineWidth = 1;
+        simCtx.beginPath();
+        simCtx.rect(p.x - size / 2, p.y - size / 2, size, size);
+        simCtx.fill();
+        simCtx.stroke();
+
+        if (hit) {
+          // 도달 빛
+          simCtx.strokeStyle = rgbString(color, 0.25);
+          simCtx.lineWidth = 1;
+          simCtx.beginPath();
+          simCtx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+          simCtx.stroke();
+        }
+
+        if (i % labelEvery === 0) {
+          simCtx.fillStyle = 'rgba(200, 214, 242, .75)';
+          simCtx.font = '10px Inter, system-ui, sans-serif';
+          simCtx.textAlign = 'center';
+          simCtx.fillText(String(i + 1), p.x, p.y - 9);
+        }
+      }
+      simCtx.textAlign = 'left';
+      simCtx.restore();
+    }
+
+    function drawScaleBar() {
+      const barWorld = 100;
+      const barPx = barWorld * app.layout.sim.scale;
+      const x = app.layout.sim.width - 160;
+      const y = app.layout.sim.height - 24;
+      simCtx.save();
+      simCtx.strokeStyle = 'rgba(230, 238, 255, .72)';
+      simCtx.lineWidth = 2;
+      simCtx.beginPath();
+      simCtx.moveTo(x, y); simCtx.lineTo(x + barPx, y);
+      simCtx.moveTo(x, y - 5); simCtx.lineTo(x, y + 5);
+      simCtx.moveTo(x + barPx, y - 5); simCtx.lineTo(x + barPx, y + 5);
+      simCtx.stroke();
+      simCtx.fillStyle = 'rgba(230, 238, 255, .85)';
+      simCtx.font = '11px Inter, system-ui, sans-serif';
+      simCtx.fillText(`${barWorld} units`, x, y - 8);
+      simCtx.restore();
+    }
+
+    function renderSimulation() {
+      simCtx.clearRect(0, 0, app.layout.sim.width, app.layout.sim.height);
+      drawSimBackground();
+      drawSimGrid();
+      drawLayers();
+      drawWaveGroup(sim.pWave);
+      drawWaveGroup(sim.sWave);
+      drawWaveGroup(sim.pRefractedWave);
+      drawWaveGroup(sim.sRefractedWave);
+      drawSourceAndReceivers();
+      drawScaleBar();
+    }
+
+    // --- 이론 주시곡선 ------------------------------------------------------
+
+    function buildDirectCurve(kind, xMax, sourceDepth, topVelocity) {
+      if (!(topVelocity > 0)) return null;
+      const points = [];
+      const samples = 220;
+      for (let i = 0; i < samples; i++) {
+        const x = (xMax * i) / (samples - 1);
+        const t = Math.sqrt(x * x + sourceDepth * sourceDepth) / topVelocity;
+        points.push({ x, t });
+      }
+      return { kind, family: 'direct', label: `${kind.toUpperCase()} direct`, points };
+    }
+
+    function buildReflectionCurve(kind, interfaceIndex, solidLayers, sourceDepth, xMax) {
+      const velocities = [];
+      const thicknesses = [];
+      for (let i = 0; i <= interfaceIndex; i++) {
+        velocities.push(kind === 'p' ? solidLayers[i].pVelocity : solidLayers[i].sVelocity);
+        const thickness = solidLayers[i].bottomDepth - solidLayers[i].topDepth;
+        thicknesses.push(thickness);
+      }
+      if (velocities.some(v => !(v > 0))) return null;
+      const vMax = Math.max(...velocities);
+      if (!(vMax > 0)) return null;
+
+      const points = [];
+      const samples = 180;
+      for (let i = 0; i < samples; i++) {
+        const u = i / (samples - 1);
+        const p = (1 / vMax) * 0.999 * Math.pow(u, 1.15);
+        let x = 0, t = 0, valid = true;
+        for (let j = 0; j <= interfaceIndex; j++) {
+          const v = velocities[j];
+          const sv = p * v;
+          if (sv >= 1) { valid = false; break; }
+          const cos = Math.sqrt(1 - sv * sv);
+          const tan = sv / cos;
+          const coeff = j === 0 ? (2 * thicknesses[0] - sourceDepth) : (2 * thicknesses[j]);
+          x += coeff * tan;
+          t += coeff / (v * cos);
+        }
+        if (valid && x >= 0 && x <= xMax * 1.02) points.push({ x, t });
+      }
+      if (points.length < 2) return null;
+      points.sort((a, b) => a.x - b.x);
+      return { kind, family: 'reflection', label: `${kind.toUpperCase()} R${interfaceIndex + 1}`, points };
+    }
+
+    function buildHeadWaveCurve(kind, interfaceIndex, solidLayers, sourceDepth, xMax) {
+      const headLayer = solidLayers[interfaceIndex + 1];
+      if (!headLayer) return null;
+      const vHead = kind === 'p' ? headLayer.pVelocity : headLayer.sVelocity;
+      if (!(vHead > 0)) return null;
+
+      const thicknesses = solidLayers.map(layer => layer.bottomDepth - layer.topDepth);
+      let intercept = 0;
+      let xMin = 0;
+      for (let j = 0; j <= interfaceIndex; j++) {
+        const v = kind === 'p' ? solidLayers[j].pVelocity : solidLayers[j].sVelocity;
+        if (!(v > 0) || vHead <= v + 1e-9) return null;
+        const sin = v / vHead;
+        const cos = Math.sqrt(1 - sin * sin);
+        const tan = sin / cos;
+        const coeff = j === 0 ? (2 * thicknesses[0] - sourceDepth) : (2 * thicknesses[j]);
+        intercept += coeff * cos / v;
+        xMin += coeff * tan;
+      }
+      if (!Number.isFinite(intercept) || !Number.isFinite(xMin)) return null;
+      if (xMin > xMax * 1.05) return null;
+      const points = [];
+      const samples = 160;
+      const startX = Math.max(0, xMin);
+      for (let i = 0; i < samples; i++) {
+        const x = startX + ((xMax - startX) * i) / (samples - 1);
+        const t = intercept + x / vHead;
+        points.push({ x, t });
+      }
+      return { kind, family: 'head', label: `${kind.toUpperCase()} H${interfaceIndex + 1}`, points };
+    }
+
+    function sampleCurveAtX(curve, x) {
+      const points = curve.points;
+      if (!points.length) return null;
+      if (x < points[0].x || x > points[points.length - 1].x) return null;
+      let lo = 0, hi = points.length - 1;
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        if (points[mid].x > x) hi = mid; else lo = mid;
+      }
+      const a = points[lo], b = points[hi];
+      const dx = b.x - a.x;
+      if (Math.abs(dx) < EPSILON) return a.t;
+      const ratio = (x - a.x) / dx;
+      return a.t + (b.t - a.t) * ratio;
+    }
+
+    function buildEnvelope(curves, xMax) {
+      const points = [];
+      const samples = 240;
+      for (let i = 0; i < samples; i++) {
+        const x = (xMax * i) / (samples - 1);
+        let best = Infinity;
+        for (let j = 0; j < curves.length; j++) {
+          const t = sampleCurveAtX(curves[j], x);
+          if (t !== null && t < best) best = t;
+        }
+        if (Number.isFinite(best)) points.push({ x, t: best });
+      }
+      return points;
+    }
+
+    function computeTheory() {
+      const solid = sim.getSolidLayers();
+      if (!solid.length) {
+        app.theoryCache = { curves: [], envelope: [], maxTime: Math.max(100, sim.modelTime), maxOffset: 100 };
+        app.theoryDirty = false;
+        return;
+      }
+      const sourceDepth = sim.source.y - sim.surfaceDepth;
+      const xMax = Math.max(80, sim.worldWidth - sim.source.x - 10);
+      const curves = [];
+      const activeKinds = [];
+      if (sim.settings.enablePWave) activeKinds.push('p');
+      if (sim.settings.enableSWave) activeKinds.push('s');
+      for (let k = 0; k < activeKinds.length; k++) {
+        const kind = activeKinds[k];
+        const topVelocity = kind === 'p' ? solid[0].pVelocity : solid[0].sVelocity;
+        const direct = buildDirectCurve(kind, xMax, sourceDepth, topVelocity);
+        if (direct) curves.push(direct);
+        if (sim.settings.enableReflections) {
+          for (let i = 0; i < solid.length - 1; i++) {
+            const reflection = buildReflectionCurve(kind, i, solid, sourceDepth, xMax);
+            if (reflection) curves.push(reflection);
+          }
+        }
+        if (sim.settings.enableHeadWaves) {
+          for (let i = 0; i < solid.length - 1; i++) {
+            const head = buildHeadWaveCurve(kind, i, solid, sourceDepth, xMax);
+            if (head) curves.push(head);
+          }
+        }
+      }
+      const envelope = sim.settings.showEnvelope ? buildEnvelope(curves, xMax) : [];
+      let maxTime = sim.modelTime;
+      curves.forEach(curve => {
+        if (curve.points.length) {
+          const t = curve.points[curve.points.length - 1].t;
+          if (Number.isFinite(t)) maxTime = Math.max(maxTime, t);
+        }
+      });
+      sim.graphPoints.forEach(point => {
+        if (Number.isFinite(point.time)) maxTime = Math.max(maxTime, point.time);
+      });
+      app.theoryCache = { curves, envelope, maxTime: Math.max(maxTime * 1.08, 60), maxOffset: xMax };
+      app.theoryDirty = false;
+    }
+
+    function graphToScreen(x, t, xMax, yMax) {
+      const g = app.layout.graph;
+      const plotWidth = Math.max(1, g.width - g.left - g.right);
+      const plotHeight = Math.max(1, g.height - g.top - g.bottom);
+      return {
+        x: g.left + (x / xMax) * plotWidth,
+        y: g.top + plotHeight - (t / yMax) * plotHeight,
+      };
+    }
+
+    function curveColor(curve) {
+      if (curve.kind === 'p') {
+        if (curve.family === 'reflection') return COLORS.pReflection;
+        if (curve.family === 'head') return COLORS.pHead;
+        return COLORS.pBody;
+      }
+      if (curve.family === 'reflection') return COLORS.sReflection;
+      if (curve.family === 'head') return COLORS.sHead;
+      return COLORS.sBody;
+    }
+
+    function drawGraphAxes(xMax, yMax) {
+      const g = app.layout.graph;
+      const plotWidth = Math.max(1, g.width - g.left - g.right);
+      const plotHeight = Math.max(1, g.height - g.top - g.bottom);
+      graphCtx.save();
+
+      graphCtx.fillStyle = 'rgba(7, 11, 18, 1)';
+      graphCtx.fillRect(0, 0, g.width, g.height);
+      const plotGrad = graphCtx.createLinearGradient(0, g.top, 0, g.top + plotHeight);
+      plotGrad.addColorStop(0, 'rgba(15, 20, 32, 1)');
+      plotGrad.addColorStop(1, 'rgba(10, 13, 22, 1)');
+      graphCtx.fillStyle = plotGrad;
+      graphCtx.fillRect(g.left, g.top, plotWidth, plotHeight);
+
+      const xStep = niceStep(xMax);
+      const yStep = niceStep(yMax);
+      graphCtx.strokeStyle = 'rgba(255,255,255,.07)';
+      graphCtx.lineWidth = 1;
+      graphCtx.beginPath();
+      for (let x = 0; x <= xMax + EPSILON; x += xStep) {
+        const p = graphToScreen(x, 0, xMax, yMax);
+        graphCtx.moveTo(p.x, g.top); graphCtx.lineTo(p.x, g.top + plotHeight);
+      }
+      for (let y = 0; y <= yMax + EPSILON; y += yStep) {
+        const p = graphToScreen(0, y, xMax, yMax);
+        graphCtx.moveTo(g.left, p.y); graphCtx.lineTo(g.left + plotWidth, p.y);
+      }
+      graphCtx.stroke();
+
+      graphCtx.strokeStyle = rgbString(COLORS.graphAxis, 0.78);
+      graphCtx.lineWidth = 1.3;
+      graphCtx.beginPath();
+      graphCtx.moveTo(g.left, g.top);
+      graphCtx.lineTo(g.left, g.top + plotHeight);
+      graphCtx.lineTo(g.left + plotWidth, g.top + plotHeight);
+      graphCtx.stroke();
+
+      graphCtx.fillStyle = 'rgba(220, 228, 245, .72)';
+      graphCtx.font = '11px Inter, system-ui, sans-serif';
+      graphCtx.textAlign = 'center';
+      for (let x = 0; x <= xMax + EPSILON; x += xStep) {
+        const p = graphToScreen(x, 0, xMax, yMax);
+        graphCtx.fillText(x.toFixed(0), p.x, g.top + plotHeight + 16);
+      }
+      graphCtx.textAlign = 'right';
+      for (let y = 0; y <= yMax + EPSILON; y += yStep) {
+        const p = graphToScreen(0, y, xMax, yMax);
+        graphCtx.fillText(y.toFixed(0), g.left - 8, p.y + 4);
+      }
+
+      graphCtx.save();
+      graphCtx.translate(18, g.top + plotHeight / 2);
+      graphCtx.rotate(-Math.PI / 2);
+      graphCtx.textAlign = 'center';
+      graphCtx.fillStyle = 'rgba(220, 228, 245, .85)';
+      graphCtx.font = '11px Inter, system-ui, sans-serif';
+      graphCtx.fillText('시간 t (model units)', 0, 0);
+      graphCtx.restore();
+      graphCtx.textAlign = 'center';
+      graphCtx.fillStyle = 'rgba(220, 228, 245, .85)';
+      graphCtx.fillText('오프셋 x (world units)', g.left + plotWidth / 2, g.top + plotHeight + 32);
+      graphCtx.restore();
+    }
+
+    function withGraphPlotClip(callback) {
+      const g = app.layout.graph;
+      const plotWidth = Math.max(1, g.width - g.left - g.right);
+      const plotHeight = Math.max(1, g.height - g.top - g.bottom);
+      graphCtx.save();
+      graphCtx.beginPath();
+      graphCtx.rect(g.left, g.top, plotWidth, plotHeight);
+      graphCtx.clip();
+      callback();
+      graphCtx.restore();
+    }
+
+    function drawCurve(curve, xMax, yMax) {
+      if (!curve.points.length) return;
+      const color = curveColor(curve);
+      graphCtx.save();
+      graphCtx.strokeStyle = rgbString(color, curve.family === 'reflection' ? 0.62 : 0.92);
+      graphCtx.lineWidth = curve.family === 'reflection' ? 1.3 : 1.8;
+      if (curve.family === 'reflection') graphCtx.setLineDash([4, 3]);
+      graphCtx.beginPath();
+      curve.points.forEach((point, index) => {
+        const p = graphToScreen(point.x, point.t, xMax, yMax);
+        if (index === 0) graphCtx.moveTo(p.x, p.y);
+        else graphCtx.lineTo(p.x, p.y);
+      });
+      graphCtx.stroke();
+      graphCtx.setLineDash([]);
+      graphCtx.restore();
+    }
+
+    function drawEnvelope(points, xMax, yMax) {
+      if (!points.length) return;
+      graphCtx.save();
+      graphCtx.shadowColor = 'rgba(255, 255, 255, 0.35)';
+      graphCtx.shadowBlur = 6;
+      graphCtx.strokeStyle = rgbString(COLORS.envelope, 0.95);
+      graphCtx.lineWidth = 2.4;
+      graphCtx.beginPath();
+      points.forEach((point, index) => {
+        const p = graphToScreen(point.x, point.t, xMax, yMax);
+        if (index === 0) graphCtx.moveTo(p.x, p.y);
+        else graphCtx.lineTo(p.x, p.y);
+      });
+      graphCtx.stroke();
+      graphCtx.restore();
+    }
+
+    function drawObservedGraphPoints(xMax, yMax) {
+      if (!sim.settings.showObserved) return;
+      graphCtx.save();
+      sim.graphPoints.forEach(entry => {
+        const p = graphToScreen(entry.offset, entry.time, xMax, yMax);
+        let color = COLORS.pBody;
+        if (entry.kind === 'p') {
+          color = entry.family === 'reflection' ? COLORS.pReflection : (entry.family === 'head' ? COLORS.pHead : COLORS.pBody);
+        } else {
+          color = entry.family === 'reflection' ? COLORS.sReflection : (entry.family === 'head' ? COLORS.sHead : COLORS.sBody);
+        }
+        const alpha = clamp(0.18 + expo(entry.intensity) * 0.75, 0.18, 0.92);
+        graphCtx.fillStyle = rgbString(color, alpha);
+        graphCtx.fillRect(p.x - 1.3, p.y - 1.3, 2.6, 2.6);
+      });
+      graphCtx.restore();
+    }
+
+    function drawReceiverFirstArrivals(xMax, yMax) {
+      graphCtx.save();
+      sim.surfaceReceivers.forEach(receiver => {
+        if (!receiver.firstArrival) return;
+        const p = graphToScreen(receiver.offset, receiver.firstArrival.time, xMax, yMax);
+        graphCtx.fillStyle = 'rgba(255,255,255,.92)';
+        graphCtx.strokeStyle = 'rgba(0,0,0,.65)';
+        graphCtx.lineWidth = 1.2;
+        graphCtx.beginPath();
+        graphCtx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+        graphCtx.fill();
+        graphCtx.stroke();
+      });
+      graphCtx.restore();
+    }
+
+    function drawCurrentTimeLine(xMax, yMax) {
+      const t = sim.modelTime;
+      if (!(t >= 0 && t <= yMax)) return;
+      const g = app.layout.graph;
+      const plotWidth = Math.max(1, g.width - g.left - g.right);
+      const p = graphToScreen(0, t, xMax, yMax);
+      graphCtx.save();
+      graphCtx.strokeStyle = 'rgba(127, 243, 207, .45)';
+      graphCtx.setLineDash([6, 5]);
+      graphCtx.lineWidth = 1.2;
+      graphCtx.beginPath();
+      graphCtx.moveTo(g.left, p.y);
+      graphCtx.lineTo(g.left + plotWidth, p.y);
+      graphCtx.stroke();
+      graphCtx.setLineDash([]);
+
+      // 현재 시간 라벨 (칩 스타일)
+      const label = `t=${t.toFixed(1)}`;
+      graphCtx.font = '11px Inter, system-ui, sans-serif';
+      const metrics = graphCtx.measureText(label);
+      const padX = 6, padY = 3, rectW = metrics.width + padX * 2, rectH = 16;
+      const rectX = g.left + plotWidth - rectW - 6;
+      const rectY = p.y - rectH / 2;
+      graphCtx.fillStyle = 'rgba(127, 243, 207, .2)';
+      graphCtx.strokeStyle = 'rgba(127, 243, 207, .5)';
+      graphCtx.lineWidth = 1;
+      graphCtx.beginPath();
+      if (graphCtx.roundRect) graphCtx.roundRect(rectX, rectY, rectW, rectH, 8);
+      else graphCtx.rect(rectX, rectY, rectW, rectH);
+      graphCtx.fill(); graphCtx.stroke();
+      graphCtx.fillStyle = 'rgba(240, 255, 248, .95)';
+      graphCtx.textAlign = 'left';
+      graphCtx.fillText(label, rectX + padX, p.y + 4);
+      graphCtx.restore();
+    }
+
+    function drawGraphOverflowHint(yMax) {
+      const overflow = (app.theoryCache.maxTime > yMax + 1) || (sim.modelTime > yMax + 1);
+      if (!overflow) return;
+      const g = app.layout.graph;
+      graphCtx.save();
+      graphCtx.fillStyle = 'rgba(255, 215, 141, .16)';
+      graphCtx.strokeStyle = 'rgba(255, 215, 141, .4)';
+      graphCtx.lineWidth = 1;
+      const x = g.left + 8, y = g.top + 8, w = 150, h = 22;
+      if (graphCtx.roundRect) { graphCtx.beginPath(); graphCtx.roundRect(x, y, w, h, 6); }
+      else graphCtx.rect(x, y, w, h);
+      graphCtx.fill(); graphCtx.stroke();
+      graphCtx.fillStyle = 'rgba(255, 215, 141, .95)';
+      graphCtx.font = '11px Inter, system-ui, sans-serif';
+      graphCtx.textAlign = 'left';
+      graphCtx.fillText(`⚠ 상단 잘림 · t > ${yMax.toFixed(0)}`, x + 10, y + 14);
+      graphCtx.restore();
+    }
+
+    function renderGraph() {
+      if (app.theoryDirty) computeTheory();
+      const xMax = Math.max(10, app.theoryCache.maxOffset);
+      const yMax = getGraphTimeWindow();
+      graphCtx.clearRect(0, 0, app.layout.graph.width, app.layout.graph.height);
+      drawGraphAxes(xMax, yMax);
+      withGraphPlotClip(() => {
+        if (sim.settings.showTheory) {
+          app.theoryCache.curves.forEach(curve => drawCurve(curve, xMax, yMax));
+        }
+        if (sim.settings.showEnvelope) {
+          drawEnvelope(app.theoryCache.envelope, xMax, yMax);
+        }
+        drawObservedGraphPoints(xMax, yMax);
+        drawReceiverFirstArrivals(xMax, yMax);
+        drawCurrentTimeLine(xMax, yMax);
+      });
+      drawGraphOverflowHint(yMax);
+    }
+
+    function renderAll() {
+      renderSimulation();
+      renderGraph();
+    }
+
+    function animate(now) {
+      const delta = clamp(now - app.lastFrameTime, 0, 32);
+      app.lastFrameTime = now;
+      sim.update(delta);
+      if (sim.graphPoints.length && !app.theoryDirty) {
+        app.theoryCache.maxTime = Math.max(app.theoryCache.maxTime, sim.modelTime * 1.04, ...sim.graphPoints.slice(-40).map(p => p.time * 1.04));
+      }
+      renderAll();
+      if (now - app.lastPanelUpdate > 180) {
+        updateStats();
+        updateBadges();
+        rebuildTables();
+        app.lastPanelUpdate = now;
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // --- 이벤트 -------------------------------------------------------------
+
+    ui.simCanvas.addEventListener('click', event => {
+      const rect = ui.simCanvas.getBoundingClientRect();
+      const world = screenToWorldSim(event.clientX - rect.left, event.clientY - rect.top);
+      ui.sourceXRange.value = String(sim.clampSourceX(world.x));
+      syncRangeLabels();
+      restartWithCurrentControls(false);
+      setStatus(`진원 X 위치를 ${Number(ui.sourceXRange.value).toFixed(1)} 로 이동했습니다.`, 'ok');
+    });
+
+    ui.applyPresetBtn.addEventListener('click', () => applyPreset(app.currentPresetKey));
+
+    ui.restartBtn.addEventListener('click', () => restartWithCurrentControls(true));
+
+    ui.pauseBtn.addEventListener('click', () => {
+      sim.running = !sim.running;
+      ui.pauseBtn.innerHTML = sim.running
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+      setStatus(sim.running ? '시뮬레이션 재생 중.' : '일시정지.', sim.running ? 'ok' : 'warn');
+    });
+
+    ui.restorePresetJsonBtn.addEventListener('click', () => {
+      loadPresetIntoEditor(app.currentPresetKey);
+      setStatus(`프리셋("${PRESETS[app.currentPresetKey].name}") 상태로 레이어 구성을 복원했습니다.`, 'ok');
+    });
+
+    ui.applyConfigBtn.addEventListener('click', () => {
+      restartWithCurrentControls(true);
+      setStatus('레이어 구성을 적용해 재실행했습니다.', 'ok');
+    });
+
+    document.getElementById('addLayerBtn').addEventListener('click', () => {
+      app.currentLayersUiState.push({
+        thickness: 100,
+        density: 200,
+        vp: 1.0,
+        vs: 0.5
+      });
+      renderLayerUi();
+      const container = document.getElementById('layerUiContainer');
+      setTimeout(() => container.scrollTop = container.scrollHeight, 10);
+    });
+
+    ui.clearObservedBtn.addEventListener('click', () => {
+      sim.clearObservedOnly();
+      rebuildTables();
+      updateStats();
+      renderGraph();
+      setStatus('관측 도달점과 수신기 첫 도달 정보를 초기화했습니다.', 'warn');
+    });
+
+    [ui.receiverCountRange, ui.sourceXRange, ui.sourceDepthRange, ui.particleRange].forEach(el => {
+      el.addEventListener('input', () => syncRangeLabels());
+      el.addEventListener('change', () => restartWithCurrentControls(false));
+    });
+
+    ui.speedRange.addEventListener('input', () => {
+      syncRangeLabels();
+      sim.updateSettings({ speed: Number(ui.speedRange.value) });
+    });
+
+    ui.brightnessRange.addEventListener('input', () => {
+      syncRangeLabels();
+      sim.updateSettings({ brightness: Number(ui.brightnessRange.value) });
+      renderAll();
+    });
+
+    ui.graphTimeRange.addEventListener('input', () => {
+      syncRangeLabels();
+      sim.updateSettings({ graphTimeWindow: getGraphTimeWindow() });
+      renderGraph();
+    });
+
+    ui.graphTimeRange.addEventListener('change', () => {
+      sim.updateSettings({ graphTimeWindow: getGraphTimeWindow() });
+      renderGraph();
+    });
+
+    ui.modelWidthInput.addEventListener('change', () => restartWithCurrentControls(true));
+
+    [ui.togglePWave, ui.toggleSWave, ui.toggleReflections, ui.toggleHeadWaves].forEach(el => {
+      el.addEventListener('change', () => restartWithCurrentControls(false));
+    });
+
+    [ui.toggleTheory, ui.toggleObserved, ui.toggleEnvelope, ui.toggleGrid].forEach(el => {
+      el.addEventListener('change', () => {
+        applyDisplaySettingsFromUI();
+        markTheoryDirty();
+        renderAll();
+      });
+    });
+
+    // 화면 확대/축소 기능
+    const simCard = document.getElementById('simCard');
+    const graphCard = document.getElementById('graphCard');
+    const btnExpandSim = document.getElementById('btnExpandSim');
+    const btnExpandGraph = document.getElementById('btnExpandGraph');
+    const btnExcelDownload = document.getElementById('btnExcelDownload');
+
+    btnExpandSim.addEventListener('click', () => {
+      const isFullscreen = simCard.classList.toggle('fullscreen-panel');
+      btnExpandSim.textContent = isFullscreen ? '✖' : '🔍';
+      btnExpandSim.title = isFullscreen ? '원래 화면으로 복귀' : '화면 확대/축소';
+      setTimeout(() => resizeAll(), 50);
+    });
+
+    btnExpandGraph.addEventListener('click', () => {
+      const isFullscreen = graphCard.classList.toggle('fullscreen-panel');
+      btnExpandGraph.textContent = isFullscreen ? '✖' : '🔍';
+      btnExpandGraph.title = isFullscreen ? '원래 화면으로 복귀' : '화면 확대/축소';
+      setTimeout(() => resizeAll(), 50);
+    });
+
+    // 엑셀 다운로드 기능
+    btnExcelDownload.addEventListener('click', () => {
+      if (!sim.surfaceReceivers || sim.surfaceReceivers.length === 0) {
+        alert('수신기 데이터가 없습니다.');
+        return;
+      }
+
+      const wb = XLSX.utils.book_new();
+
+      // 수신기 자료 시트
+      const receiverData = sim.surfaceReceivers.map(r => {
+        let firstArrivalText = '-';
+        let firstArrivalTime = '-';
+        if (r.firstArrival) {
+           let familyText = r.firstArrival.family === 'reflection' ? '반사' : (r.firstArrival.family === 'head' ? '임계굴절' : '직접');
+           firstArrivalText = `${r.firstArrival.kind.toUpperCase()} ${familyText}`;
+           firstArrivalTime = r.firstArrival.time.toFixed(2);
+        }
+        return {
+          'No': r.index + 1,
+          'X 좌표 (위치)': Number(r.x.toFixed(1)),
+          '오프셋 (진원과의 거리)': Number(r.offset.toFixed(1)),
+          '첫 도달 파동': firstArrivalText,
+          '첫 도달 시간 (sec)': firstArrivalTime !== '-' ? Number(firstArrivalTime) : '-',
+          '총 도달 횟수': r.arrivals.length
+        };
+      });
+
+      const wsData = XLSX.utils.json_to_sheet(receiverData);
+      wsData['!cols'] = [{wch: 5}, {wch: 15}, {wch: 22}, {wch: 20}, {wch: 20}, {wch: 15}];
+      XLSX.utils.book_append_sheet(wb, wsData, "수신기 자료");
+
+      // 시뮬레이션 변수 시트
+      const varData = [
+        { '변수명': '프리셋 이름', '값': PRESETS[app.currentPresetKey]?.name || '수동 설정' },
+        { '변수명': '모델 폭 (Width)', '값': sim.worldWidth + ' units' },
+        { '변수명': '진원 X 위치', '값': sim.source.x + ' units' },
+        { '변수명': '진원 깊이 (표면 아래)', '값': (sim.source.y - sim.surfaceDepth) + ' units' },
+        { '변수명': '수신기 개수', '값': sim.surfaceReceivers.length + ' 개' },
+        { '변수명': '수신기 간격', '값': sim.receiverArrayMeta.spacing.toFixed(2) + ' units' },
+        { '변수명': '입자 수', '값': sim.settings.particleCount },
+        { '변수명': '진행 속도', '값': sim.settings.speed + 'x' },
+        { '변수명': 'P파 활성화', '값': sim.settings.enablePWave ? 'O' : 'X' },
+        { '변수명': 'S파 활성화', '값': sim.settings.enableSWave ? 'O' : 'X' },
+        { '변수명': '반사파 활성화', '값': sim.settings.enableReflections ? 'O' : 'X' },
+        { '변수명': '임계굴절파 활성화', '값': sim.settings.enableHeadWaves ? 'O' : 'X' }
+      ];
+
+      const wsVars = XLSX.utils.json_to_sheet(varData);
+      wsVars['!cols'] = [{wch: 25}, {wch: 20}];
+      XLSX.utils.book_append_sheet(wb, wsVars, "시뮬레이션 변수");
+
+      XLSX.writeFile(wb, "Seismic_Simulation_Data.xlsx");
+    });
+
+    // 키보드 단축키
+    window.addEventListener('keydown', event => {
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return;
+      if (event.code === 'Space') { event.preventDefault(); ui.pauseBtn.click(); }
+      else if (event.key === 'r' || event.key === 'R') { ui.restartBtn.click(); }
+      else if (event.key === 'c' || event.key === 'C') { ui.clearObservedBtn.click(); }
+    });
+
+    const resizeObserver = new ResizeObserver(() => resizeAll());
+    resizeObserver.observe(ui.simViewport);
+    resizeObserver.observe(ui.graphViewport);
+    window.addEventListener('resize', resizeAll);
+
+    buildPresetGrid();
+    updatePresetDescription();
+    syncRangeLabels();
+    applyPreset(app.currentPresetKey);
+
+    requestAnimationFrame(now => {
+      app.lastFrameTime = now;
+      requestAnimationFrame(animate);
+    });
+  })();
+  </script>
+</body>
+</html>
