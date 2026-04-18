@@ -6,6 +6,8 @@
 **👉 [웹에서 바로 실행하기 (Play Online)](https://rochelobeJYJ.github.io/SeismicWaveSim/)**
 
 웹 기반 지진파 시뮬레이터로, 지진파(P파 및 S파)의 전파 과정과 주시곡선 생성 과정을 실시간으로 시각화합니다. 이 프로젝트는 [FFLiK/SeismicWaveSimulator](https://github.com/FFLiK/SeismicWaveSimulator)의 원본 C++ 물리 엔진을 단일 HTML5/JavaScript 파일로 이식(Porting)한 버전으로, 직관적인 UI와 확장된 교육용 기능을 제공합니다.
+<img width="1918" height="856" alt="image" src="https://github.com/user-attachments/assets/0921c66a-66dc-4223-95a8-3a0d859baac1" />
+
 
 ## 🌟 주요 기능 (Key Features)
 
