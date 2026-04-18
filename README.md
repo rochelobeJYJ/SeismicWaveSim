@@ -1,6 +1,9 @@
 # Web Seismic Wave Simulator (웹 지진파 시뮬레이터)
 
 [![License](https://img.shields.io/badge/License-GPL_3.0-blue.svg)](LICENSE)
+[![Play Online](https://img.shields.io/badge/Play-Online-success.svg)](https://rochelobeJYJ.github.io/SeismicWaveSim/)
+
+**👉 [웹에서 바로 실행하기 (Play Online)](https://rochelobeJYJ.github.io/SeismicWaveSim/)**
 
 웹 기반 지진파 시뮬레이터로, 지진파(P파 및 S파)의 전파 과정과 주시곡선 생성 과정을 실시간으로 시각화합니다. 이 프로젝트는 [FFLiK/SeismicWaveSimulator](https://github.com/FFLiK/SeismicWaveSimulator)의 원본 C++ 물리 엔진을 단일 HTML5/JavaScript 파일로 이식(Porting)한 버전으로, 직관적인 UI와 확장된 교육용 기능을 제공합니다.
 
@@ -15,8 +18,8 @@
 
 ## 🚀 실행 방법
 
-1. `seismic_wave_simulator_single_file.html` 파일을 웹 브라우저(크롬, 엣지, 사파리, 파이어폭스 등)에 드래그 앤 드롭하여 바로 실행할 수 있습니다.
-2. **GitHub Pages로 웹에 배포하기:** 해당 파일의 이름을 `index.html`로 변경한 뒤 깃허브 저장소에 업로드하고 GitHub Pages 기능을 활성화하면 즉시 웹 서비스로 동작합니다.
+1. **[웹 브라우저에서 바로 실행하기 (클릭)](https://rochelobeJYJ.github.io/SeismicWaveSim/)**: 별도의 다운로드나 설치 없이 위 링크를 클릭하여 모바일/PC 환경에서 즉시 시뮬레이터를 사용할 수 있습니다.
+2. **로컬 오프라인 실행하기**: 저장소의 `index.html` 파일을 다운로드 받아 웹 브라우저(크롬, 엣지, 사파리 등)에 드래그 앤 드롭하여 오프라인 환경에서도 실행할 수 있습니다.
 
 ## 🔧 사용 가이드
 
